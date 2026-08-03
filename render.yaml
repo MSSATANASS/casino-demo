@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: casino-demo
+    runtime: docker
+    plan: standard
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: casino-demo-db
+          property: connectionString
+      - key: BONUS_CHIPS
+        value: "100"
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 5
+
+databases:
+  - name: casino-demo-db
+    plan: free
+    region: oregon

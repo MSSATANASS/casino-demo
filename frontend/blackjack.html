@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blackjack - Casino Demo</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>🃏 Blackjack</h1>
+    <div>Fichas: <span id="balance">-</span></div>
+  </header>
+  <main>
+    <h2>Dealer</h2>
+    <p id="dealer-hand"></p>
+    <h2>Tú</h2>
+    <p id="player-hand"></p>
+    <input type="number" id="bet" value="10" min="1" step="1">
+    <button id="deal-btn">Repartir</button>
+    <button id="hit-btn" disabled>Pedir</button>
+    <button id="stand-btn" disabled>Plantarse</button>
+    <p id="result"></p>
+    <a href="/">← Volver al lobby</a>
+  </main>
+  <script src="/js/app.js"></script>
+  <script>
+    const deck = [];
+    const player = [];
+    const dealer = [];
+
+    function cardLabel(c) { return `${c.rank}${c.suit}`; }
+    function handTotal(hand) {
+      let total = hand.reduce((s, c) => s + c.value, 0);
+      let aces = hand.filter((c) => c.rank === "A").length;
+      while (total > 21 && aces) { total -= 10; aces--; }
+      return total;
+    }
+    function freshDeck() {
+      const suits = ["♠", "♥", "♦", "♣"];
+      const ranks = ["A", "K", "Q", "J", "10", "9", "8", "7"];
+      const vals = { A: 11, K: 10, Q: 10, J: 10, 10: 10, 9: 9, 8: 8, 7: 7 };
+      const d = [];
+      for (const s of suits) for (const r of ranks) d.push({ rank: r, suit: s, value: vals[r] });
+      for (let i = d.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [d[i], d[j]] = [d[j], d[i]]; }
+      return d;
+    }
+    function render() {
+      document.getElementById("dealer-hand").textContent = dealer.map(cardLabel).join(" ") + " (" + handTotal(dealer) + ")";
+      document.getElementById("player-hand").textContent = player.map(cardLabel).join(" ") + " (" + handTotal(player) + ")";
+    }
+    async function settle() {
+      const bet = parseFloat(document.getElementById("bet").value);
+      document.getElementById("deal-btn").disabled = true;
+      const body = { bet, player, dealer: dealer.slice(0, 1) };
+      const data = await api("/api/games/blackjack/play", { method: "POST", body: JSON.stringify(body) });
+      renderF(data.result);
+      setChips(data.chips);
+    }
+    function renderF(r) {
+      document.getElementById("result").textContent =
+        r.outcome === "bust" ? "Te pasaste" :
+        r.outcome === "win" ? `¡Ganaste +${r.payout - bet()}!` :
+        r.outcome === "push" ? "Empate" : "Perdiste";
+    }
+    document.getElementById("deal-btn").addEventListener("click", () => {
+      deck.length = 0; player.length = 0; dealer.length = 0;
+      deck.push(...freshDeck());
+      player.push(deck.pop(), deck.pop());
+      dealer.push(deck.pop());
+      document.getElementById("hit-btn").disabled = false;
+      document.getElementById("stand-btn").disabled = false;
+      document.getElementById("deal-btn").disabled = true;
+      render();
+    });
+    document.getElementById("hit-btn").addEventListener("click", () => {
+      player.push(deck.pop());
+      render();
+      if (handTotal(player) > 21) settle();
+    });
+    document.getElementById("stand-btn").addEventListener("click", settle);
+    window.bet = () => parseFloat(document.getElementById("bet").value);
+  </script>
+</body>
+</html>

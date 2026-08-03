@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Casino Demo - Fichas Virtuales</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>🎰 Casino Demo</h1>
+    <div id="balance-box">Fichas: <span id="balance">-</span></div>
+  </header>
+
+  <main>
+    <section id="auth-view">
+      <form id="auth-form">
+        <h2 id="auth-title">Registro</h2>
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Contraseña" minlength="6" required>
+        <button type="submit" id="auth-btn">Crear cuenta</button>
+        <p><a href="#" id="toggle-auth">Ya tengo cuenta, entrar</a></p>
+      </form>
+    </section>
+
+    <section id="lobby-view" hidden>
+      <h2>Elige un juego</h2>
+      <div class="lobby-grid">
+        <a href="/slots.html" class="game-card">🎰 Slots</a>
+        <a href="/blackjack.html" class="game-card">🃏 Blackjack</a>
+        <a href="/roulette.html" class="game-card">🎡 Ruleta</a>
+      </div>
+      <h3>Leaderboard</h3>
+      <ul id="leaderboard"></ul>
+    </section>
+  </main>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
