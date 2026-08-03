@@ -4,9 +4,9 @@ Demo legal de casino con fichas virtuales — **sin dinero real**. Mismo stack q
 
 ## Stack
 - Backend: FastAPI, SQLAlchemy 2.x, bcrypt, PyJWT
-- Base de datos: PostgreSQL (Render) / SQLite (local)
+- Base de datos: SQLite en disco persistente de Render (`/data`) — Postgres disponible si se quieren concursos multi-usuario
 - Frontend: HTML/CSS/JS vanilla (SPA sin frameworks)
-- Deploy: Render via `render.yaml` (web + free Postgres), puerto 10000
+- Deploy: Render via `render.yaml` (web service docker + disk 5GB), puerto 10000
 
 ## Estructura
 ```
@@ -56,8 +56,8 @@ uvicorn backend.app.main:app --port 10000
 
 ## Deploy en Render
 1. Push a GitHub
-2. Dashboard → New → Blueprint → seleccionar repo → `render.yaml` auto-configura web service + Postgres free
-3. Variables: `SECRET_KEY` (auto-generada), `BONUS_CHIPS=100`
+2. Dashboard → New → Blueprint → seleccionar repo → `render.yaml` configura web service docker + disco `data`
+3. Variables: `SECRET_KEY` (auto-generada), `DATABASE_URL=sqlite:////data/casino.db`, `BONUS_CHIPS=100`
 
 ## Roadmap (phas 2): skill games con dinero real
 - Modelo estilo Skillz: competencias de trivia/typing donde el usuario paga entrada y compite
