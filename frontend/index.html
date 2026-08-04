@@ -23,6 +23,11 @@
         <span class="label">Fichas</span>
         <span class="value" id="balance">-</span>
       </div>
+      <div class="chip">
+        <span class="coin user-coin"></span>
+        <span class="label">Jugador</span>
+        <span class="value" id="username-label">-</span>
+      </div>
     </div>
   </header>
 
@@ -34,6 +39,7 @@
         <p class="sub">Entra y juega con fichas virtuales</p>
         <form id="auth-form" autocomplete="on">
           <input class="field" type="email" id="email" placeholder="Tu email" autocomplete="email" required>
+          <input class="field" type="text" id="username" placeholder="Nombre de jugador (opcional)" maxlength="16" autocomplete="nickname">
           <input class="field" type="password" id="password" placeholder="Contraseña (mín. 6)" minlength="6" autocomplete="current-password" required>
           <button type="submit" class="btn" id="auth-btn" data-mode="register">Crear cuenta</button>
         </form>

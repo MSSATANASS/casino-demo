@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, inspect, text
@@ -15,6 +16,7 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
     email = Column(String, unique=True, nullable=False, index=True)
+    username = Column(String, nullable=True, index=True)
     password_hash = Column(String, nullable=False)
     chips = Column(Integer, nullable=False, default=0)
     server_seed = Column(String, nullable=True)
@@ -47,14 +49,39 @@ class BlackjackRound(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+def normalize_handle(raw: str) -> str:
+    name = re.sub(r"[^a-z0-9_.-]", "", (raw or "").lower())
+    return (name[:16] or "player").rstrip("._-") or "player"
+
+
 def _migrate():
     insp = inspect(engine)
     if "users" in insp.get_table_names():
         existing = {c["name"] for c in insp.get_columns("users")}
         with engine.begin() as conn:
-            for col, ddl in (("server_seed", "VARCHAR"), ("server_seed_commit", "VARCHAR"), ("round_no", "INTEGER DEFAULT 0")):
+            for col, ddl in (
+                ("server_seed", "VARCHAR"),
+                ("server_seed_commit", "VARCHAR"),
+                ("round_no", "INTEGER DEFAULT 0"),
+                ("username", "VARCHAR"),
+            ):
                 if col not in existing:
                     conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
+            null_users = conn.execute(
+                text("SELECT id, email FROM users WHERE username IS NULL OR username = '' ORDER BY id")
+            ).all()
+            if null_users:
+                used: set[str] = set()
+                for uid, email in null_users:
+                    base = normalize_handle(email.split("@")[0]) if email else "player"
+                    name, n = base, 1
+                    while name in used:
+                        name, n = f"{base}{n}", n + 1
+                    used.add(name)
+                    conn.execute(
+                        text("UPDATE users SET username = :u WHERE id = :i"),
+                        {"u": name, "i": uid},
+                    )
 
 
 def init_db():

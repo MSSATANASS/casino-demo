@@ -164,6 +164,37 @@ def test_history_endpoint(client, auth):
     assert rows[0]["net"] == round(rows[0]["payout"] - rows[0]["bet"], 2)
 
 
+def test_health_endpoint(client):
+    assert client.get("/health").status_code == 200
+    assert client.get("/health").json()["status"] == "ok"
+
+
+def test_register_username_and_dedupe(client):
+    r1 = client.post(
+        "/api/auth/register", json={"email": "gael@test.com", "password": "secret123", "username": "gael"}
+    ).json()
+    assert r1["user"]["username"] == "gael"
+
+    r2 = client.post(
+        "/api/auth/register", json={"email": "gael2@test.com", "password": "secret123", "username": "gael"}
+    ).json()
+    assert r2["user"]["username"] == "gael1"
+
+    r3 = client.post("/api/auth/register", json={"email": "no-name@test.com", "password": "secret123"}).json()
+    assert r3["user"]["username"].startswith("no-name")
+
+
+def test_leaderboard_leaks_no_email(client, auth):
+    reg = client.post("/api/auth/register", json={"email": "private@test.com", "password": "secret123", "username": "anonimato"}).json()
+    h = {"Authorization": f"Bearer {reg['token']}"}
+    client.post("/api/games/slots/play", json={"bet": 5}, headers=h)
+    rows = client.get("/api/games/leaderboard").json()
+    assert rows, "leaderboard vacío"
+    assert all("@" not in str(r.get("username", "")) for r in rows)
+    assert all("username" in r and "chips" in r for r in rows)
+    assert all("email" not in r for r in rows)
+
+
 def test_secret_key_guard(monkeypatch):
     import app.config as cfg
 

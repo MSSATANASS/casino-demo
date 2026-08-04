@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import hash_password, verify_password, create_token, get_db, get_current_user
 from ..config import BONUS_CHIPS, REGISTER_RATE_LIMIT
-from ..db import User
+from ..db import User, normalize_handle
 from ..games import fair
 from ..ratelimit import RateLimiter, client_ip
 
@@ -16,6 +16,7 @@ register_limit = RateLimiter(*REGISTER_RATE_LIMIT)
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str
+    username: str | None = None
 
 
 class LoginIn(BaseModel):
@@ -23,19 +24,37 @@ class LoginIn(BaseModel):
     password: str
 
 
+def _pick_username(db: Session, raw: str | None, email: str) -> str:
+    base = normalize_handle(raw) if raw else normalize_handle(email.split("@")[0])
+    name, n = base, 1
+    while db.query(User).filter(User.username == name).first():
+        name, n = f"{base}{n}", n + 1
+    return name
+
+
 def _public(user: User) -> dict:
-    return {"id": user.id, "email": user.email, "chips": user.chips}
+    return {
+        "id": user.id,
+        "username": user.username or f"player_{user.id}",
+        "email": user.email,
+        "chips": user.chips,
+    }
 
 
 @router.post("/register")
 def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
     if not register_limit.allowed(client_ip(request)):
-        raise HTTPException(status_code=429, detail="Too many accounts from this IP")
+        raise HTTPException(status_code=429, detail="Too many accounts from this IP", headers={"Retry-After": "3600"})
     if len(body.password) < 6:
         raise HTTPException(status_code=400, detail="Password too short (min 6 chars)")
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    user = User(email=body.email, password_hash=hash_password(body.password), chips=BONUS_CHIPS)
+    user = User(
+        email=body.email,
+        username=_pick_username(db, body.username, body.email),
+        password_hash=hash_password(body.password),
+        chips=BONUS_CHIPS,
+    )
     user.server_seed = fair.gen_seed()
     user.server_seed_commit = fair.hash_hex(user.server_seed)
     db.add(user)

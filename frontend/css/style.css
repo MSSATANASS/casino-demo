@@ -137,6 +137,10 @@ a:hover { color: var(--gold); }
   box-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
   display: inline-block;
 }
+.chip .coin.user-coin {
+  background: radial-gradient(circle at 35% 30%, #e6e9ff, #7d8bff 45%, #3b49c9);
+  box-shadow: 0 0 10px rgba(125, 139, 255, 0.7);
+}
 @keyframes chipPulse {
   0%, 100% { box-shadow: 0 0 8px rgba(255, 215, 0, 0.25); }
   50% { box-shadow: 0 0 22px rgba(255, 215, 0, 0.75); }
@@ -379,7 +383,7 @@ select.field { appearance: none; cursor: pointer; }
 }
 .leaderboard li:hover { transform: translateX(4px); box-shadow: 0 0 18px rgba(255, 215, 0, 0.15); }
 .leaderboard .rank { font-family: var(--font-display); color: var(--gold); font-weight: 700; width: 34px; }
-.leaderboard .email { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leaderboard .pseudonym { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .leaderboard .chips { font-weight: 700; color: var(--gold-pale); }
 .leaderboard .chips::before { content: "◆ "; color: var(--gold); font-size: 0.7rem; }
 

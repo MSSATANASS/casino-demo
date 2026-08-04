@@ -65,7 +65,12 @@ authForm?.addEventListener("submit", async (e) => {
   const password = document.getElementById("password").value;
   const isLogin = document.getElementById("auth-btn").dataset.mode === "login";
   const path = isLogin ? "/api/auth/login" : "/api/auth/register";
-  const data = await api(path, { method: "POST", body: JSON.stringify({ email, password }) });
+  const body = { email, password };
+  if (!isLogin) {
+    const username = document.getElementById("username").value.trim();
+    if (username) body.username = username;
+  }
+  const data = await api(path, { method: "POST", body: JSON.stringify(body) });
   if (data.token) {
     localStorage.setItem("casino_token", data.token);
     location.reload();
@@ -80,13 +85,14 @@ document.getElementById("toggle-auth")?.addEventListener("click", (e) => {
   document.getElementById("auth-title").textContent = loginMode ? "Registro" : "Login";
   document.getElementById("auth-btn").textContent = loginMode ? "Crear cuenta" : "Entrar";
   document.getElementById("auth-btn").dataset.mode = loginMode ? "register" : "login";
+  document.getElementById("username").style.display = loginMode ? "" : "none";
 });
 
 async function loadLeaderboard() {
   const el = document.getElementById("leaderboard");
   if (!el) return;
   const rows = await api("/api/games/leaderboard");
-  el.innerHTML = rows.map((r) => `<li>${r.email}: ${r.chips} fichas</li>`).join("");
+  el.innerHTML = rows.map((r) => `<li><span class="rank">#${rows.indexOf(r) + 1}</span><span class="pseudonym">${r.username}</span><span class="chips">${r.chips} fichas</span></li>`).join("");
 }
 
 async function loadHistory() {
@@ -115,6 +121,8 @@ async function initApp() {
   document.getElementById("lobby-view")?.removeAttribute("hidden");
   const me = await api("/api/auth/me");
   setChips(me.chips);
+  const uname = document.getElementById("username-label");
+  if (uname) uname.textContent = me.username || "player";
   initFair();
   loadLeaderboard();
   loadHistory();

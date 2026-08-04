@@ -25,6 +25,9 @@ class BlackjackActionIn(BaseModel):
     action: str
 
 
+RATE_LIMITED = HTTPException(status_code=429, detail="Too many plays, slow down", headers={"Retry-After": "60"})
+
+
 def _default_client_seed(user: User) -> str:
     return fair.hash_hex(f"{user.id}:{user.email}")
 
@@ -69,7 +72,7 @@ def play_slots(
     db: Session = Depends(get_db),
 ):
     if not play_limit.allowed(str(user.id), client_ip(request)):
-        raise HTTPException(status_code=429, detail="Too many plays, slow down")
+        raise RATE_LIMITED
     _validate_bet(body.bet, user.chips)
     rng, fair_info = _fair(user, body.client_seed)
     result = slots.spin(body.bet, rng)
@@ -88,7 +91,7 @@ def play_roulette(
     db: Session = Depends(get_db),
 ):
     if not play_limit.allowed(str(user.id), client_ip(request)):
-        raise HTTPException(status_code=429, detail="Too many plays, slow down")
+        raise RATE_LIMITED
     if bet_type not in roulette.PAYOUTS:
         raise HTTPException(status_code=400, detail="Invalid bet type")
     if bet_type == "straight" and (number is None or number not in roulette.NUMBERS):
@@ -110,7 +113,7 @@ def play_dice(
     db: Session = Depends(get_db),
 ):
     if not play_limit.allowed(str(user.id), client_ip(request)):
-        raise HTTPException(status_code=429, detail="Too many plays, slow down")
+        raise RATE_LIMITED
     if bet_type not in dice.PAYOUTS:
         raise HTTPException(status_code=400, detail="Invalid bet type")
     _validate_bet(body.bet, user.chips)
@@ -129,7 +132,7 @@ def blackjack_start(
     db: Session = Depends(get_db),
 ):
     if not play_limit.allowed(str(user.id), client_ip(request)):
-        raise HTTPException(status_code=429, detail="Too many plays, slow down")
+        raise RATE_LIMITED
     _validate_bet(body.bet, user.chips)
     rng, fair_info = _fair(user, body.client_seed)
     user.chips = round(user.chips - body.bet, 2)
@@ -243,7 +246,10 @@ def fair_state(user: User = Depends(get_current_user), db: Session = Depends(get
 @router.get("/leaderboard")
 def leaderboard(db: Session = Depends(get_db)):
     rows = db.query(User).order_by(User.chips.desc()).limit(20).all()
-    return [{"email": u.email, "chips": u.chips} for u in rows]
+    return [
+        {"username": u.username or f"player_{u.id}", "chips": u.chips}
+        for u in rows
+    ]
 
 
 @router.get("/history")
