@@ -1,5 +1,22 @@
 let token = localStorage.getItem("casino_token");
 
+function captureAttribution() {
+  try {
+    const q = new URLSearchParams(window.location.search);
+    const keys = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "ttclid", "gclid", "fbclid"];
+    const parts = [];
+    for (const k of keys) {
+      const v = (q.get(k) || "").trim();
+      if (v) parts.push(k + "=" + v.slice(0, 120));
+    }
+    if (parts.length) {
+      localStorage.setItem("casino_src", parts.join(";").slice(0, 256));
+      history.replaceState({}, "", window.location.pathname + window.location.hash);
+    }
+  } catch { /* noop */ }
+}
+captureAttribution();
+
 async function api(path, opts = {}) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = "Bearer " + token;
@@ -75,6 +92,8 @@ authForm?.addEventListener("submit", async (e) => {
   if (!isLogin) {
     const username = document.getElementById("username").value.trim();
     if (username) body.username = username;
+    const src = localStorage.getItem("casino_src");
+    if (src) body.source = src;
   }
   const data = await api(path, { method: "POST", body: JSON.stringify(body) });
   if (data.token) {

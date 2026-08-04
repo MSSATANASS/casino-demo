@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
+import re
 
 from ..auth import hash_password, verify_password, create_token, get_db, get_current_user
 from ..config import BONUS_CHIPS, REGISTER_RATE_LIMIT
@@ -18,6 +19,14 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str
     username: str | None = None
+    source: str | None = None
+
+
+def _clean_source(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    clean = re.sub(r"[^ -~]+", "", raw).strip()
+    return clean[:256] or None
 
 
 class LoginIn(BaseModel):
@@ -55,6 +64,7 @@ def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
         username=_pick_username(db, body.username, body.email),
         password_hash=hash_password(body.password),
         chips=BONUS_CHIPS,
+        source=_clean_source(body.source),
     )
     user.server_seed = fair.gen_seed()
     user.server_seed_commit = fair.hash_hex(user.server_seed)

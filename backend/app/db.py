@@ -31,6 +31,7 @@ class User(Base):
     server_seed = Column(String, nullable=True)
     server_seed_commit = Column(String, nullable=True)
     round_no = Column(Integer, nullable=False, default=0)
+    source = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -73,6 +74,7 @@ def _migrate():
                 ("server_seed_commit", "VARCHAR"),
                 ("round_no", "INTEGER DEFAULT 0"),
                 ("username", "VARCHAR"),
+                ("source", "VARCHAR"),
             ):
                 if col not in existing:
                     conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))

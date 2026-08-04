@@ -279,6 +279,33 @@ def test_body_size_limit(client, auth):
     assert r.status_code == 413, f"body >64KB debería dar 413 (dio {r.status_code})"
 
 
+def test_register_source_saved_not_exposed(client):
+    r = client.post(
+        "/api/auth/register",
+        json={
+            "email": "src@test.com",
+            "password": "secret123",
+            "source": "ttclid=abc123;utm_campaign=tt_launch;bad=\x00\x07control",
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert "source" not in body["user"], "el source no debe filtrarse en la respuesta"
+
+    from app.db import SessionLocal, User
+
+    db = SessionLocal()
+    try:
+        u = db.query(User).filter(User.email == "src@test.com").first()
+        assert u is not None
+        assert "ttclid=abc123" in u.source
+        assert "utm_campaign=tt_launch" in u.source
+        assert "\x00" not in u.source
+        assert len(u.source) <= 256
+    finally:
+        db.close()
+
+
 def test_secret_key_guard(monkeypatch):
     import app.config as cfg
 
