@@ -3,34 +3,39 @@ import random
 # Verified mock slot configuration from DeepSeek:
 # - 3 reels, 1 line
 # - x = total return (not net profit)
-# - wild substitutes everything except scatter
-# - scatter pays separately and can stack with line wins
+# - wild resolves to the best valid symbol on the line
+# - one payout per line; scatter pays separately
 # - strips are identical, length 50 each
 
+CHERRY = "🍒"
+LEMON = "🍋"
+BELL = "⭐"
+BAR = "BAR"
+SEVEN = "7"
+WILD = "💎"
+SCATTER = "🃏"
+
 STRIP = [
-    "🍒", "🍒", "🍒", "🍒", "🍒", "🍒", "🍒", "🍒", "🍒", "🍒", "🍒",
-    "🍋", "🍋", "🍋", "🍋", "🍋", "🍋", "🍋", "🍋", "🍋", "🍋", "🍋", "🍋",
-    "⭐", "⭐", "⭐", "⭐", "⭐", "⭐", "⭐", "⭐", "⭐",
-    "BAR", "BAR", "BAR", "BAR", "BAR", "BAR",
-    "7", "7", "7", "7",
-    "💎", "💎",
-    "☀", "☀", "☀", "☀", "☀", "☀",
+    CHERRY, CHERRY, CHERRY, CHERRY, CHERRY, CHERRY, CHERRY, CHERRY, CHERRY, CHERRY, CHERRY,
+    LEMON, LEMON, LEMON, LEMON, LEMON, LEMON, LEMON, LEMON, LEMON, LEMON, LEMON, LEMON,
+    BELL, BELL, BELL, BELL, BELL, BELL, BELL, BELL, BELL,
+    BAR, BAR, BAR, BAR, BAR, BAR,
+    SEVEN, SEVEN, SEVEN, SEVEN,
+    WILD, WILD,
+    SCATTER, SCATTER, SCATTER, SCATTER, SCATTER, SCATTER,
 ]
 
-SYMBOLS = sorted(set(STRIP + ["🃏"]))
+SYMBOLS = sorted(set(STRIP))
 
 PAYTABLE = {
-    ("🍒",): {1: 1, 2: 2, 3: 5},
-    ("🍋",): {3: 8},
-    ("⭐",): {3: 12},
-    ("BAR",): {3: 20},
-    ("7",): {3: 40},
-    ("💎",): {3: 100},
-    ("☀",): {3: 50},
+    CHERRY: {1: 1, 2: 2, 3: 5},
+    LEMON: {3: 8},
+    BELL: {3: 13},
+    BAR: {3: 20},
+    SEVEN: {3: 38},
+    WILD: {3: 100},
 }
-SCATTER = "🃏"
 SCATTER_PAYS = {2: 1, 3: 50}
-WILD = "💎"
 
 
 def _visible_from_pos(pos: int) -> list[str]:
@@ -43,41 +48,32 @@ def _count_scatter(grid: list[list[str]]) -> int:
 
 
 def _line_payout(line: list[str]) -> float:
-    # Wilds behave as substitutes, but W-W-W is its own jackpot bucket.
+    # One classification per line. Wild resolves to the best valid base symbol.
     if line == [WILD, WILD, WILD]:
-        return 100.0
-
+        return float(PAYTABLE[WILD][3])
     if SCATTER in line:
         return 0.0
 
-    # Count consecutive matches from left to right, with wild substitution.
-    base = None
-    run = 0
-    for sym in line:
-        if sym == WILD:
-            run += 1
-            continue
-        if base is None:
-            base = sym
-            run += 1
-            continue
-        if sym == base:
-            run += 1
+    best = 0.0
+    candidates = {sym for sym in line if sym not in {WILD, SCATTER}}
+    for base in candidates:
+        run = 0
+        for sym in line:
+            if sym == base or sym == WILD:
+                run += 1
+            else:
+                break
+        if base == CHERRY:
+            pay = PAYTABLE[CHERRY].get(run, 0)
         else:
-            break
-    if base is None:
-        return 0.0
-
-    # For cherries we pay partials on 1 and 2 from left to right.
-    if base == "🍒":
-        return float(PAYTABLE[("🍒",)].get(run, 0))
-    if run == 3 and (base,) in PAYTABLE and 3 in PAYTABLE[(base,)]:
-        return float(PAYTABLE[(base,)][3])
-    return 0.0
+            pay = PAYTABLE.get(base, {}).get(3, 0) if run == 3 else 0
+        if pay > best:
+            best = float(pay)
+    return best
 
 
 def spin(bet: float, rng: random.Random) -> dict:
-    # Build a 3x3 window from three independently stopped reels.
+    # Build a 3x3 visible window from three independently stopped reels.
     reels = []
     stops = []
     for _ in range(3):
@@ -86,12 +82,8 @@ def spin(bet: float, rng: random.Random) -> dict:
         reels.append(_visible_from_pos(stop))
 
     payout = 0.0
-    lines = [
-        [reels[0][0], reels[1][0], reels[2][0]],
-    ]
-
-    for line in lines:
-        payout += bet * _line_payout(line)
+    line = [reels[0][0], reels[1][0], reels[2][0]]
+    payout += bet * _line_payout(line)
 
     scatters = _count_scatter(reels)
     payout += bet * float(SCATTER_PAYS.get(scatters, 0))
@@ -100,7 +92,7 @@ def spin(bet: float, rng: random.Random) -> dict:
         "reels": reels,
         "stops": stops,
         "payout": round(payout, 2),
-        "lines": lines,
+        "lines": [line],
         "scatter_count": scatters,
         "paytable": {
             "line": PAYTABLE,
