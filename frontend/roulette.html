@@ -3,44 +3,163 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ruleta - Casino Demo</title>
+  <title>Ruleta — CASINO DEMO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <header>
-    <h1>🎡 Ruleta</h1>
-    <div>Fichas: <span id="balance">-</span></div>
+  <header class="site-header">
+    <div class="brand"><span class="diamond">◆</span><div>CASINO DEMO<small>Ruleta</small></div></div>
+    <div class="chip-bar">
+      <button class="mute-btn" id="mute-btn" aria-label="Silenciar sonido">🔊</button>
+      <div class="chip"><span class="coin"></span><span class="label">Fichas</span><span class="value" id="balance">-</span></div>
+    </div>
   </header>
-  <main>
-    <div id="wheel"><span id="num">0</span></div>
-    <input type="number" id="bet" value="10" min="1" step="1">
-    <select id="bet-type">
-      <option value="red">Rojo</option>
-      <option value="black">Negro</option>
-      <option value="even">Par</option>
-      <option value="odd">Impar</option>
-      <option value="low">1-18</option>
-      <option value="high">19-36</option>
-      <option value="straight">Número exacto</option>
-    </select>
-    <input type="number" id="number" placeholder="Número (0-36)" hidden>
-    <button id="spin-btn">Girar</button>
-    <p id="result-text"></p>
-    <a href="/">← Volver al lobby</a>
+
+  <main class="page">
+    <div class="game-panel">
+      <h2>🎡 Ruleta</h2>
+      <p class="hint">Elige tu apuesta y gira la rueda</p>
+
+      <div class="roulette-stage">
+        <div class="wheel" id="wheel">
+          <svg viewBox="0 0 400 400" class="wheel-svg" aria-label="Rueda de ruleta europea">
+            <g id="sectors"></g>
+            <circle cx="200" cy="200" r="42" fill="#14141f" stroke="#b8860b" stroke-width="2"/>
+            <circle cx="200" cy="200" r="10" fill="#ffd700"/>
+          </svg>
+        </div>
+        <div class="ball-orbit" id="ball-orbit"><div class="ball" id="ball"></div></div>
+        <div class="pointer"></div>
+      </div>
+
+      <div class="num" id="num">0</div>
+
+      <div class="field-row" style="justify-content:center; margin-bottom:16px;">
+        <input class="field" type="number" id="bet" value="10" min="1" step="1" style="max-width:120px;" aria-label="Apuesta">
+        <select class="field" id="bet-type" style="max-width:180px;">
+          <option value="red">Rojo</option>
+          <option value="black">Negro</option>
+          <option value="even">Par</option>
+          <option value="odd">Impar</option>
+          <option value="low">1-18</option>
+          <option value="high">19-36</option>
+          <option value="straight">Número exacto</option>
+        </select>
+        <input class="field" type="number" id="number" placeholder="Nº (0-36)" hidden style="max-width:120px;">
+      </div>
+
+      <button class="btn" id="spin-btn">Girar</button>
+      <p class="result" id="result-text"></p>
+      <a class="back-link" href="/">← Volver al lobby</a>
+    </div>
   </main>
+
+  <footer class="site-footer">
+    <div class="diamonds">◆ ◆ ◆</div>
+    <div><strong>CASINO DEMO</strong> — demo de entretenimiento con fichas virtuales.</div>
+  </footer>
+
   <script src="/js/app.js"></script>
+  <script src="/js/sfx.js"></script>
   <script>
     const betType = document.getElementById("bet-type");
     const numInput = document.getElementById("number");
+    const numEl = document.getElementById("num");
+    const resultEl = document.getElementById("result-text");
+    const spinBtn = document.getElementById("spin-btn");
+    const wheelEl = document.getElementById("wheel");
+    const ballOrbit = document.getElementById("ball-orbit");
+    const sectorsG = document.getElementById("sectors");
+
+    // European wheel layout (clockwise from 0)
+    const SEQ = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+    const REDS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+    const N = SEQ.length;
+    const STEP = 360 / N;
+
+    function buildWheel() {
+      const cx = 200, cy = 200, R = 172;
+      let html = "";
+      SEQ.forEach((num, i) => {
+        const a0 = i * STEP, a1 = (i + 1) * STEP;
+        const x0 = cx + R * Math.sin(a0 * Math.PI / 180);
+        const y0 = cy - R * Math.cos(a0 * Math.PI / 180);
+        const x1 = cx + R * Math.sin(a1 * Math.PI / 180);
+        const y1 = cy - R * Math.cos(a1 * Math.PI / 180);
+        const color = num === 0 ? "#0a7a3a" : (REDS.has(num) ? "#c62828" : "#16161f");
+        html += `<path d="M${cx},${cy} L${x0.toFixed(2)},${y0.toFixed(2)} A${R},${R} 0 0 1 ${x1.toFixed(2)},${y1.toFixed(2)} Z" fill="${color}" stroke="#b8860b" stroke-width="1" data-num="${num}"/>`;
+        const mid = (a0 + a1) / 2;
+        const lx = cx + (R - 30) * Math.sin(mid * Math.PI / 180);
+        const ly = cy - (R - 30) * Math.cos(mid * Math.PI / 180);
+        html += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" fill="#fff" font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="middle">${num}</text>`;
+      });
+      sectorsG.innerHTML = html;
+    }
+    buildWheel();
+
     betType.addEventListener("change", () => { numInput.hidden = betType.value !== "straight"; });
-    document.getElementById("spin-btn").addEventListener("click", async () => {
+
+    let spinning = false;
+    spinBtn.addEventListener("click", async () => {
+      if (spinning) return;
+      spinning = true;
       const bet = parseFloat(document.getElementById("bet").value);
       const bt = betType.value;
       const query = bt === "straight" ? `?bet_type=${bt}&number=${numInput.value}` : `?bet_type=${bt}`;
+      spinBtn.disabled = true;
+      resultEl.className = "result";
+      resultEl.textContent = "Girando…";
+      numEl.classList.remove("spin", "win");
+      sectorsG.querySelectorAll("path").forEach((p) => p.classList.remove("hit"));
+
+      // Start the wheel spinning immediately (unknown result, random base rotation).
+      const dur = 5.2;
+      const ease = "cubic-bezier(0.12, 0.6, 0.1, 1)";
+      wheelEl.style.transition = `transform ${dur}s ${ease}`;
+      ballOrbit.style.transition = `transform ${dur}s ${ease}`;
+      wheelEl.style.transform = `rotate(${5 * 360 + Math.random() * 360}deg)`;
+      ballOrbit.style.transform = `rotate(${5 * 360}deg)`;
+      sfxSpinReel();
+      const tick = setInterval(() => sfxBall(), 110);
+
       const data = await api(`/api/games/roulette/play${query}`, { method: "POST", body: JSON.stringify({ bet }) });
-      document.getElementById("num").textContent = data.result.number;
-      document.getElementById("result-text").textContent = data.result.won ? `¡Ganaste +${data.result.payout - bet}!` : "Perdiste";
-      setChips(data.chips);
+      const num = data.result.number;
+      const idx = SEQ.indexOf(num);
+      const A = idx * STEP;
+
+      // Refine: winning sector lands under the top pointer, ball lands on it.
+      const turns = 7;
+      wheelEl.style.transform = `rotate(${(-A + turns * 360).toFixed(3)}deg)`;
+      ballOrbit.style.transform = `rotate(${(turns * 360).toFixed(3)}deg)`;
+
+      setTimeout(() => {
+        clearInterval(tick);
+        const p = sectorsG.querySelector(`path[data-num="${num}"]`);
+        if (p) p.classList.add("hit");
+        numEl.textContent = num;
+        numEl.classList.add("spin");
+        const won = data.result.won;
+        const gain = data.result.payout - bet;
+        if (won) {
+          numEl.classList.add("win");
+          resultEl.className = "result win";
+          resultEl.textContent = `¡Ganaste +${gain} fichas!`;
+          sfxWin();
+          confetti(120);
+          showToast(`+${gain} fichas`);
+        } else {
+          resultEl.className = "result lose";
+          resultEl.textContent = "Perdiste";
+          sfxLose();
+          shakeEl(document.querySelector(".wheel"));
+        }
+        setChips(data.chips);
+        spinBtn.disabled = false;
+        spinning = false;
+      }, dur * 1000);
     });
   </script>
 </body>

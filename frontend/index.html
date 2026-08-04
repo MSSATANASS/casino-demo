@@ -3,38 +3,98 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Casino Demo - Fichas Virtuales</title>
+  <title>CASINO DEMO — Fichas Virtuales</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <header>
-    <h1>🎰 Casino Demo</h1>
-    <div id="balance-box">Fichas: <span id="balance">-</span></div>
+  <div class="particles" id="particles" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="brand">
+      <span class="diamond">◆</span>
+      <div>CASINO DEMO<small>Fichas virtuales · sin dinero real</small></div>
+    </div>
+    <div class="chip-bar">
+      <div class="chip">
+        <span class="coin"></span>
+        <span class="label">Fichas</span>
+        <span class="value" id="balance">-</span>
+      </div>
+    </div>
   </header>
 
-  <main>
-    <section id="auth-view">
-      <form id="auth-form">
-        <h2 id="auth-title">Registro</h2>
-        <input type="email" id="email" placeholder="Email" required>
-        <input type="password" id="password" placeholder="Contraseña" minlength="6" required>
-        <button type="submit" id="auth-btn">Crear cuenta</button>
-        <p><a href="#" id="toggle-auth">Ya tengo cuenta, entrar</a></p>
-      </form>
+  <main class="page">
+    <!-- ============ AUTH ============ -->
+    <section id="auth-view" class="auth-wrap">
+      <div class="auth-card">
+        <h2 id="auth-title">Bienvenido</h2>
+        <p class="sub">Entra y juega con fichas virtuales</p>
+        <form id="auth-form" autocomplete="on">
+          <input class="field" type="email" id="email" placeholder="Tu email" autocomplete="email" required>
+          <input class="field" type="password" id="password" placeholder="Contraseña (mín. 6)" minlength="6" autocomplete="current-password" required>
+          <button type="submit" class="btn" id="auth-btn" data-mode="register">Crear cuenta</button>
+        </form>
+        <p class="auth-toggle"><a href="#" id="toggle-auth">Ya tengo cuenta, entrar</a></p>
+      </div>
     </section>
 
+    <!-- ============ LOBBY ============ -->
     <section id="lobby-view" hidden>
-      <h2>Elige un juego</h2>
-      <div class="lobby-grid">
-        <a href="/slots.html" class="game-card">🎰 Slots</a>
-        <a href="/blackjack.html" class="game-card">🃏 Blackjack</a>
-        <a href="/roulette.html" class="game-card">🎡 Ruleta</a>
+      <div class="loyalty">
+        <div class="stat"><div class="k">Juegos disponibles</div><div class="v">3</div></div>
+        <div class="stat"><div class="k">Tipo de ficha</div><div class="v">Virtual</div></div>
+        <div class="stat"><div class="k">Modo</div><div class="v">Demo</div></div>
       </div>
-      <h3>Leaderboard</h3>
-      <ul id="leaderboard"></ul>
+
+      <h2 class="section-title">Elige tu juego</h2>
+      <div class="lobby-grid">
+        <a href="/slots.html" class="game-card">
+          <span class="icon">🎰</span>
+          <span class="name">Slots</span>
+          <span class="desc">Tres rodillos, símbolos dorados y premios alineados.</span>
+          <span class="go">Jugar →</span>
+        </a>
+        <a href="/blackjack.html" class="game-card">
+          <span class="icon">🃏</span>
+          <span class="name">Blackjack</span>
+          <span class="desc">Acércate a 21 sin pasarte contra el dealer.</span>
+          <span class="go">Jugar →</span>
+        </a>
+        <a href="/roulette.html" class="game-card">
+          <span class="icon">🎡</span>
+          <span class="name">Ruleta</span>
+          <span class="desc">Apunta a rojo, negro, par o un número exacto.</span>
+          <span class="go">Jugar →</span>
+        </a>
+      </div>
+
+      <h2 class="section-title">Leaderboard</h2>
+      <ul id="leaderboard" class="leaderboard"></ul>
     </section>
   </main>
 
+  <footer class="site-footer">
+    <div class="diamonds">◆ ◆ ◆</div>
+    <div><strong>CASINO DEMO</strong> — demo de entretenimiento con fichas virtuales. No se juega con dinero real.</div>
+  </footer>
+
   <script src="/js/app.js"></script>
+  <script>
+    // spawn floating gold particles
+    const wrap = document.getElementById("particles");
+    for (let i = 0; i < 16; i++) {
+      const p = document.createElement("span");
+      p.className = "particle";
+      const size = 3 + Math.random() * 6;
+      p.style.width = p.style.height = size + "px";
+      p.style.left = Math.random() * 100 + "%";
+      p.style.animationDuration = (7 + Math.random() * 9) + "s";
+      p.style.animationDelay = (Math.random() * 8) + "s";
+      wrap.appendChild(p);
+    }
+  </script>
 </body>
 </html>

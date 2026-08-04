@@ -3,27 +3,61 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blackjack - Casino Demo</title>
+  <title>Blackjack — CASINO DEMO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <header>
-    <h1>🃏 Blackjack</h1>
-    <div>Fichas: <span id="balance">-</span></div>
+  <header class="site-header">
+    <div class="brand"><span class="diamond">◆</span><div>CASINO DEMO<small>Blackjack</small></div></div>
+    <div class="chip-bar">
+      <button class="mute-btn" id="mute-btn" aria-label="Silenciar sonido">🔊</button>
+      <div class="chip"><span class="coin"></span><span class="label">Fichas</span><span class="value" id="balance">-</span></div>
+    </div>
   </header>
-  <main>
-    <h2>Dealer</h2>
-    <p id="dealer-hand"></p>
-    <h2>Tú</h2>
-    <p id="player-hand"></p>
-    <input type="number" id="bet" value="10" min="1" step="1">
-    <button id="deal-btn">Repartir</button>
-    <button id="hit-btn" disabled>Pedir</button>
-    <button id="stand-btn" disabled>Plantarse</button>
-    <p id="result"></p>
-    <a href="/">← Volver al lobby</a>
+
+  <main class="page">
+    <div class="game-panel">
+      <h2>🃏 Blackjack</h2>
+      <p class="hint">Acércate a 21 sin pasarte. El dealer se planta en 17.</p>
+
+      <div class="table">
+        <div class="hand-label">Dealer <span class="total" id="dealer-total">0</span></div>
+        <div class="hand-cards" id="dealer-hand"></div>
+
+        <div class="bet-zone">
+          <div class="bet-stack" id="bet-stack"></div>
+          <div class="bet-tag" id="bet-tag">Apuesta</div>
+        </div>
+
+        <div class="hand-label">Tú <span class="total" id="player-total">0</span></div>
+        <div class="hand-cards" id="player-hand"></div>
+      </div>
+
+      <div class="field-row" style="justify-content:center; margin-bottom:16px;">
+        <input class="field" type="number" id="bet" value="10" min="1" step="1" style="max-width:120px;" aria-label="Apuesta">
+      </div>
+
+      <div class="field-row" style="justify-content:center; margin-bottom:10px;">
+        <button class="btn" id="deal-btn">Repartir</button>
+        <button class="btn btn-ghost" id="hit-btn" disabled>Pedir</button>
+        <button class="btn btn-ghost" id="stand-btn" disabled>Plantarse</button>
+      </div>
+
+      <p class="result" id="result"></p>
+      <a class="back-link" href="/">← Volver al lobby</a>
+    </div>
   </main>
+
+  <footer class="site-footer">
+    <div class="diamonds">◆ ◆ ◆</div>
+    <div><strong>CASINO DEMO</strong> — demo de entretenimiento con fichas virtuales.</div>
+  </footer>
+
   <script src="/js/app.js"></script>
+  <script src="/js/sfx.js"></script>
   <script>
     const deck = [];
     const player = [];
@@ -45,23 +79,68 @@
       for (let i = d.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [d[i], d[j]] = [d[j], d[i]]; }
       return d;
     }
+    const isRed = (s) => s === "♥" || s === "♦";
+    function cardHTML(c, i) {
+      const red = isRed(c.suit) ? " red" : "";
+      return `<div class="card${red}" style="animation-delay:${(i || 0) * 0.13}s"><span class="corner">${c.rank}<br>${c.suit}</span><span class="center-suit">${c.suit}</span></div>`;
+    }
     function render() {
-      document.getElementById("dealer-hand").textContent = dealer.map(cardLabel).join(" ") + " (" + handTotal(dealer) + ")";
-      document.getElementById("player-hand").textContent = player.map(cardLabel).join(" ") + " (" + handTotal(player) + ")";
+      const dEl = document.getElementById("dealer-hand");
+      const pEl = document.getElementById("player-hand");
+      dEl.innerHTML = dealer.map((c, i) => cardHTML(c, i)).join("");
+      pEl.innerHTML = player.map((c, i) => cardHTML(c, i)).join("");
+      document.getElementById("dealer-total").textContent = handTotal(dealer);
+      document.getElementById("player-total").textContent = handTotal(player);
+    }
+    function renderBetStack() {
+      const bet = parseFloat(document.getElementById("bet").value) || 0;
+      const stack = document.getElementById("bet-stack");
+      const tag = document.getElementById("bet-tag");
+      const chips = Math.min(6, Math.max(1, Math.round(bet / 10)));
+      stack.innerHTML = "";
+      for (let i = 0; i < chips; i++) {
+        const c = document.createElement("div");
+        c.className = "bet-chip";
+        c.style.zIndex = i;
+        c.style.transform = `translate(${(i % 3) * 4 - 2}px, ${-i * 3}px)`;
+        c.textContent = bet;
+        stack.appendChild(c);
+      }
+      tag.textContent = bet ? `Apuesta: ${bet}` : "Apuesta";
     }
     async function settle() {
       const bet = parseFloat(document.getElementById("bet").value);
       document.getElementById("deal-btn").disabled = true;
+      document.getElementById("hit-btn").disabled = true;
+      document.getElementById("stand-btn").disabled = true;
       const body = { bet, player, dealer: dealer.slice(0, 1) };
       const data = await api("/api/games/blackjack/play", { method: "POST", body: JSON.stringify(body) });
       renderF(data.result);
       setChips(data.chips);
+      document.getElementById("deal-btn").disabled = false;
     }
     function renderF(r) {
-      document.getElementById("result").textContent =
-        r.outcome === "bust" ? "Te pasaste" :
-        r.outcome === "win" ? `¡Ganaste +${r.payout - bet()}!` :
-        r.outcome === "push" ? "Empate" : "Perdiste";
+      const res = document.getElementById("result");
+      if (r.outcome === "bust") {
+        res.className = "result lose";
+        res.textContent = "Te pasaste de 21";
+        sfxLose();
+        shakeEl(document.querySelector(".table"));
+      } else if (r.outcome === "win") {
+        res.className = "result win";
+        res.textContent = `¡Ganaste +${r.payout - bet()}!`;
+        sfxWin();
+        confetti(120);
+        showToast(`+${r.payout - bet()} fichas`);
+      } else if (r.outcome === "push") {
+        res.className = "result push";
+        res.textContent = "Empate — recuperas tu apuesta";
+      } else {
+        res.className = "result lose";
+        res.textContent = "El dealer gana";
+        sfxLose();
+        shakeEl(document.querySelector(".table"));
+      }
     }
     document.getElementById("deal-btn").addEventListener("click", () => {
       deck.length = 0; player.length = 0; dealer.length = 0;
@@ -71,14 +150,21 @@
       document.getElementById("hit-btn").disabled = false;
       document.getElementById("stand-btn").disabled = false;
       document.getElementById("deal-btn").disabled = true;
+      document.getElementById("result").className = "result";
+      document.getElementById("result").textContent = "";
       render();
+      renderBetStack();
+      sfxChip();
+      setTimeout(() => { sfxCard(); sfxCard(); sfxCard(); }, 160);
     });
     document.getElementById("hit-btn").addEventListener("click", () => {
       player.push(deck.pop());
       render();
+      sfxCard();
       if (handTotal(player) > 21) settle();
     });
     document.getElementById("stand-btn").addEventListener("click", settle);
+    document.getElementById("bet").addEventListener("input", renderBetStack);
     window.bet = () => parseFloat(document.getElementById("bet").value);
   </script>
 </body>

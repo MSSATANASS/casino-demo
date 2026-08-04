@@ -3,38 +3,132 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Slots - Casino Demo</title>
+  <title>Slots — CASINO DEMO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <header>
-    <h1>🎰 Slots</h1>
-    <div>Fichas: <span id="balance">-</span></div>
-  </header>
-  <main>
-    <div class="reels" id="reels">
-      <span class="slot">?</span><span class="slot">?</span><span class="slot">?</span><br>
-      <span class="slot">?</span><span class="slot">?</span><span class="slot">?</span><br>
-      <span class="slot">?</span><span class="slot">?</span><span class="slot">?</span>
+  <header class="site-header">
+    <div class="brand"><span class="diamond">◆</span><div>CASINO DEMO<small>Slots</small></div></div>
+    <div class="chip-bar">
+      <button class="mute-btn" id="mute-btn" aria-label="Silenciar sonido">🔊</button>
+      <div class="chip"><span class="coin"></span><span class="label">Fichas</span><span class="value" id="balance">-</span></div>
     </div>
-    <input type="number" id="bet" value="10" min="1" step="1">
-    <button id="spin-btn">Girar</button>
-    <p id="result"></p>
-    <a href="/">← Volver al lobby</a>
+  </header>
+
+  <main class="page">
+    <div class="game-panel">
+      <h2>🎰 Slots</h2>
+      <p class="hint">Alinea 3 símbolos iguales en una fila para ganar</p>
+
+      <div class="slots-machine">
+        <div class="machine-marquee">
+          <span class="marquee-light"></span>
+          <span class="marquee-title">LUCKY 7</span>
+          <span class="marquee-light"></span>
+        </div>
+        <div class="reels-wrap">
+          <div class="reels" id="reels">
+            <div class="reel-col"><div class="reel-strip"><span class="slot">?</span><span class="slot">?</span><span class="slot">?</span></div></div>
+            <div class="reel-col"><div class="reel-strip"><span class="slot">?</span><span class="slot">?</span><span class="slot">?</span></div></div>
+            <div class="reel-col"><div class="reel-strip"><span class="slot">?</span><span class="slot">?</span><span class="slot">?</span></div></div>
+          </div>
+          <div class="win-line"></div>
+        </div>
+      </div>
+
+      <div class="field-row" style="justify-content:center; margin-bottom:16px;">
+        <input class="field" type="number" id="bet" value="10" min="1" step="1" style="max-width:140px;" aria-label="Apuesta">
+        <button class="btn" id="spin-btn">Girar</button>
+      </div>
+
+      <p class="result" id="result"></p>
+      <a class="back-link" href="/">← Volver al lobby</a>
+    </div>
   </main>
+
+  <footer class="site-footer">
+    <div class="diamonds">◆ ◆ ◆</div>
+    <div><strong>CASINO DEMO</strong> — demo de entretenimiento con fichas virtuales.</div>
+  </footer>
+
   <script src="/js/app.js"></script>
+  <script src="/js/sfx.js"></script>
   <script>
     const spinBtn = document.getElementById("spin-btn");
+    const reelsEl = document.getElementById("reels");
+    const resultEl = document.getElementById("result");
+    const SYMBOLS = ["7", "BAR", "🍒", "🍋", "⭐", "💎"];
+
+    // Build a tall vertical strip; the LAST 3 symbols are the result row.
+    function buildStrip(finalCol) {
+      const rand = [];
+      for (let i = 0; i < 22; i++) rand.push(SYMBOLS[(Math.random() * SYMBOLS.length) | 0]);
+      const strip = rand.concat(finalCol);
+      return `<div class="reel-strip">${strip.map((s) => `<span class="slot">${s}</span>`).join("")}</div>`;
+    }
+
+    function renderReels(reels) {
+      reelsEl.innerHTML = reels.map((col) => `<div class="reel-col">${buildStrip(col)}</div>`).join("");
+    }
+
     async function spin() {
       const bet = parseFloat(document.getElementById("bet").value);
       spinBtn.disabled = true;
+      resultEl.className = "result";
+      resultEl.textContent = "Girando…";
+      reelsEl.classList.remove("landing", "win");
+      reelsEl.classList.add("spinning");
+      sfxSpinReel();
+
       const data = await api("/api/games/slots/play", { method: "POST", body: JSON.stringify({ bet }) });
       const reels = data.result.reels;
-      document.getElementById("reels").innerHTML = reels.flat().map((s) => `<span class="slot">${s}</span>`).join("");
-      setChips(data.chips);
-      const gain = data.result.payout - bet;
-      document.getElementById("result").textContent = gain >= 0 ? `+${gain} fichas` : `${gain} fichas`;
-      spinBtn.disabled = false;
+
+      renderReels(reels);
+      const cols = reelsEl.querySelectorAll(".reel-col");
+      cols.forEach((col) => {
+        const strip = col.querySelector(".reel-strip");
+        const h = strip.querySelector(".slot").offsetHeight;
+        const target = -(strip.children.length - 3) * h;
+        strip.style.setProperty("--target", target + "px");
+        strip.classList.add("spin");
+      });
+
+      // land staggered: col 1 first, then 2, then 3
+      cols.forEach((col, i) => {
+        setTimeout(() => {
+          const strip = col.querySelector(".reel-strip");
+          strip.classList.remove("spin");
+          strip.classList.add("land");
+          sfxLand();
+        }, i * 260);
+      });
+
+      setTimeout(() => {
+        reelsEl.classList.remove("spinning");
+        reelsEl.classList.add("landing");
+        setChips(data.chips);
+        const gain = data.result.payout - bet;
+        if (gain > 0) {
+          resultEl.className = "result win";
+          resultEl.textContent = `¡Ganaste +${gain} fichas!`;
+          reelsEl.classList.add("win");
+          sfxWin();
+          confetti(140);
+          showToast(`+${gain} fichas`);
+        } else if (gain === 0) {
+          resultEl.className = "result push";
+          resultEl.textContent = "Empate — recuperas tu apuesta";
+        } else {
+          resultEl.className = "result lose";
+          resultEl.textContent = `${gain} fichas`;
+          sfxLose();
+          shakeEl(document.querySelector(".slots-machine"));
+        }
+        spinBtn.disabled = false;
+      }, 2200);
     }
     spinBtn.addEventListener("click", spin);
   </script>
