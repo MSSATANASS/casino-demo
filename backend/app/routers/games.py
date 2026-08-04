@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_db, get_current_user
 from ..config import MAX_BET, MIN_BET, PLAY_RATE_LIMIT
-from ..db import BlackjackRound, GameHistory, User, load_round
+from ..db import BlackjackRound, GameHistory, LedgerEntry, User, load_round, record_ledger_event
 from ..games import blackjack, dice, fair, roulette, slots
 from ..ratelimit import RateLimiter, client_ip
 
@@ -66,7 +66,7 @@ class BlackjackActionIn(BaseModel):
     action: str
 
 
-RATE_LIMITED = HTTPException(status_code=429, detail="Too many plays, slow down", headers={"Retry-After": "60"})
+RATE_LIMITED = HTTPException(status_code=429, detail="Too many plays, slow down", headers=[("Retry-After", "60")])
 
 
 def _default_client_seed(user: User) -> str:
@@ -100,13 +100,28 @@ def _validate_bet(bet: float, chips: int):
         raise HTTPException(status_code=400, detail="Invalid bet")
 
 
-def _record(db: Session, user_id: int, game: str, bet: float, payout: float, result: dict):
-    db.add(GameHistory(user_id=user_id, game=game, bet=bet, payout=payout, result=str(result)))
+def _record(db: Session, user: User, game: str, bet: float, payout: float, result: dict, idempotency_key: str):
+    db.add(GameHistory(user_id=user.id, game=game, bet=bet, payout=payout, result=str(result)))
     db.commit()
+    record_ledger_event(
+        db,
+        user_id=user.id,
+        kind="bet",
+        amount=int(round(-bet * 100)),
+        idempotency_key=f"{idempotency_key}:bet",
+        meta={"game": game, "bet": bet},
+    )
+    record_ledger_event(
+        db,
+        user_id=user.id,
+        kind="payout",
+        amount=int(round(payout * 100)),
+        idempotency_key=f"{idempotency_key}:payout",
+        meta={"game": game, "payout": payout, "result": result},
+    )
 
 
 @router.post("/slots/play")
-
 @serialize_user
 def play_slots(
     body: PlayIn,
@@ -120,12 +135,11 @@ def play_slots(
     rng, fair_info = _fair(user, body.client_seed)
     result = slots.spin(body.bet, rng)
     user.chips = round(user.chips - body.bet + result["payout"], 2)
-    _record(db, user.id, "slots", body.bet, result["payout"], result)
+    _record(db, user, "slots", body.bet, result["payout"], result, f"slots:{fair_info['round_no']}")
     return {"result": result, "chips": user.chips, "fair": fair_info}
 
 
 @router.post("/roulette/play")
-
 @serialize_user
 def play_roulette(
     body: PlayIn,
@@ -145,12 +159,11 @@ def play_roulette(
     rng, fair_info = _fair(user, body.client_seed)
     result = roulette.spin(body.bet, bet_type, number, rng)
     user.chips = round(user.chips - body.bet + result["payout"], 2)
-    _record(db, user.id, "roulette", body.bet, result["payout"], result)
+    _record(db, user, "roulette", body.bet, result["payout"], result, f"roulette:{fair_info['round_no']}")
     return {"result": result, "chips": user.chips, "fair": fair_info}
 
 
 @router.post("/dice/play")
-
 @serialize_user
 def play_dice(
     body: PlayIn,
@@ -167,12 +180,11 @@ def play_dice(
     rng, fair_info = _fair(user, body.client_seed)
     result = dice.spin(body.bet, bet_type, rng)
     user.chips = round(user.chips - body.bet + result["payout"], 2)
-    _record(db, user.id, "dice", body.bet, result["payout"], result)
+    _record(db, user, "dice", body.bet, result["payout"], result, f"dice:{fair_info['round_no']}")
     return {"result": result, "chips": user.chips, "fair": fair_info}
 
 
 @router.post("/blackjack/start")
-
 @serialize_user
 def blackjack_start(
     body: PlayIn,
@@ -191,7 +203,7 @@ def blackjack_start(
     if blackjack.is_natural(player) or blackjack.is_natural(dealer):
         result = blackjack.natural_settle(body.bet, player, dealer)
         user.chips = round(user.chips + result["payout"], 2)
-        _record(db, user.id, "blackjack", body.bet, result["payout"], result)
+        _record(db, user, "blackjack", body.bet, result["payout"], result, f"blackjack:{fair_info['round_no']}")
         return {
             "round_id": None,
             "player": player,
@@ -226,7 +238,6 @@ def blackjack_start(
 
 
 @router.post("/blackjack/action")
-
 @serialize_user
 def blackjack_action(
     body: BlackjackActionIn,
@@ -273,7 +284,7 @@ def blackjack_action(
     r.deck = json.dumps(deck)
     r.player_hand = json.dumps(player)
     r.dealer_hand = json.dumps(dealer)
-    _record(db, user.id, "blackjack", r.bet, result["payout"], result)
+    _record(db, user, "blackjack", r.bet, result["payout"], result, f"blackjack:{r.id}")
     return {
         "round_id": r.id,
         "player": player,
@@ -286,7 +297,6 @@ def blackjack_action(
 
 
 @router.get("/fair/state")
-
 @serialize_user
 def fair_state(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not user.server_seed:
