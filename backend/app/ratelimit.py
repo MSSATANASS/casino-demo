@@ -9,6 +9,7 @@ class RateLimiter:
         self.window = window
         self._hits: dict[str, list[float]] = {}
         self._lock = threading.Lock()
+        self._last_prune = 0.0
 
     def _key(self, *parts: str) -> str:
         return hashlib.sha256(":".join(parts).encode()).hexdigest()
@@ -17,6 +18,13 @@ class RateLimiter:
         key = self._key(*parts)
         now = time.monotonic()
         with self._lock:
+            if now - self._last_prune > 300:
+                self._last_prune = now
+                self._hits = {
+                    k: [t for t in v if now - t < self.window]
+                    for k, v in self._hits.items()
+                    if any(now - t < self.window for t in v)
+                }
             ts = [t for t in self._hits.get(key, []) if now - t < self.window]
             if len(ts) >= self.limit:
                 self._hits[key] = ts

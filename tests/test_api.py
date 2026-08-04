@@ -40,9 +40,14 @@ def test_seed_determinism():
 def test_fair_commit_chain(client, auth):
     from app.games import slots
 
+    st = client.get("/api/games/fair/state", headers=auth).json()
+    assert st["round_no"] == 0
+    assert len(st["server_seed_commit"]) == 64
+
     r1 = client.post("/api/games/slots/play", json={"bet": 5}, headers=auth).json()
     assert r1["fair"]["round_no"] == 1
-    assert r1["fair"]["commit_published_before"] is None
+    assert r1["fair"]["commit_published_before"] == st["server_seed_commit"]
+    assert fair.hash_hex(r1["fair"]["server_seed_used"]) == st["server_seed_commit"]
 
     r2 = client.post("/api/games/slots/play", json={"bet": 5}, headers=auth).json()
     f2 = r2["fair"]
@@ -54,6 +59,10 @@ def test_fair_commit_chain(client, auth):
 
     r3 = client.post("/api/games/slots/play", json={"bet": 5}, headers=auth).json()
     assert fair.hash_hex(r3["fair"]["server_seed_used"]) == r3["fair"]["commit_published_before"] == f2["next_commit"]
+
+    st2 = client.get("/api/games/fair/state", headers=auth).json()
+    assert st2["round_no"] == 3
+    assert st2["server_seed_commit"] == r3["fair"]["next_commit"]
 
 
 def test_custom_client_seed(client, auth):

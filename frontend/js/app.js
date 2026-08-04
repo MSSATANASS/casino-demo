@@ -14,25 +14,41 @@ async function sha256hex(str) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+let fairPreCommit = null;
+
+async function initFair() {
+  try {
+    const st = await api("/api/games/fair/state");
+    const cur = st.server_seed_commit;
+    if (cur && cur !== sessionStorage.getItem("casino_fair_commit")) {
+      sessionStorage.setItem("casino_fair_commit", cur);
+    }
+    fairPreCommit = sessionStorage.getItem("casino_fair_commit");
+  } catch {
+    fairPreCommit = null;
+  }
+}
+
 function renderFair(data) {
   const el = document.getElementById("fair-badge");
   if (!el || !data?.fair) return;
   const f = data.fair;
+  const expected = f.commit_published_before || fairPreCommit;
   let html = `Ronda #${f.round_no} · seed cliente <code>${f.client_seed.slice(0, 10)}…</code>`;
-  if (f.commit_published_before) {
+  if (expected) {
     html += ` · <span class="verify-pending">verificando hash…</span>`;
     sha256hex(f.server_seed_used).then((h) => {
-      const ok = h === f.commit_published_before;
+      const ok = h === expected;
       const span = el.querySelector(".verify-pending");
       if (span) {
         span.className = ok ? "verify-ok" : "verify-bad";
         span.textContent = ok
-          ? "✓ commit verificable: sha256(seed) == hash previo"
+          ? "✓ sha256(seed del servidor) == commit previo — ronda verificada"
           : "✗ FALLO DE VERIFICACIÓN — no confíes en esta ronda";
       }
     });
   } else {
-    html += ` · <span class="verify-pending">primer commit publicado — la próxima ronda será verificable</span>`;
+    html += ` · <span class="verify-pending">commit no disponible — recarga para obtener el commit</span>`;
   }
   el.innerHTML = html;
 }
@@ -99,6 +115,7 @@ async function initApp() {
   document.getElementById("lobby-view")?.removeAttribute("hidden");
   const me = await api("/api/auth/me");
   setChips(me.chips);
+  initFair();
   loadLeaderboard();
   loadHistory();
 }

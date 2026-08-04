@@ -231,6 +231,15 @@ def blackjack_action(
     }
 
 
+@router.get("/fair/state")
+def fair_state(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not user.server_seed:
+        user.server_seed = fair.gen_seed()
+        user.server_seed_commit = fair.hash_hex(user.server_seed)
+        db.commit()
+    return {"round_no": user.round_no, "server_seed_commit": user.server_seed_commit}
+
+
 @router.get("/leaderboard")
 def leaderboard(db: Session = Depends(get_db)):
     rows = db.query(User).order_by(User.chips.desc()).limit(20).all()

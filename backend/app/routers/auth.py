@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from ..auth import hash_password, verify_password, create_token, get_db, get_current_user
 from ..config import BONUS_CHIPS, REGISTER_RATE_LIMIT
 from ..db import User
+from ..games import fair
 from ..ratelimit import RateLimiter, client_ip
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -35,6 +36,8 @@ def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(email=body.email, password_hash=hash_password(body.password), chips=BONUS_CHIPS)
+    user.server_seed = fair.gen_seed()
+    user.server_seed_commit = fair.hash_hex(user.server_seed)
     db.add(user)
     db.commit()
     db.refresh(user)
