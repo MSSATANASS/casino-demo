@@ -1,4 +1,4 @@
-import secrets
+import random
 
 NUMBERS = list(range(37))
 PAYOUTS = {
@@ -13,8 +13,8 @@ PAYOUTS = {
 REDS = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
 
 
-def spin(bet: float, bet_type: str, number: int | None = None) -> dict:
-    result = secrets.choice(NUMBERS)
+def spin(bet: float, bet_type: str, number: int | None, rng: random.Random) -> dict:
+    result = rng.choice(NUMBERS)
     won = False
     if bet_type == "straight":
         won = result == number

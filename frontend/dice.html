@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dados — CASINO DEMO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand"><span class="diamond">◆</span><div>CASINO DEMO<small>Dados</small></div></div>
+    <div class="chip-bar">
+      <button class="mute-btn" id="mute-btn" aria-label="Silenciar sonido">🔊</button>
+      <div class="chip"><span class="coin"></span><span class="label">Fichas</span><span class="value" id="balance">-</span></div>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="game-panel">
+      <h2>🎲 Dados</h2>
+      <p class="hint">Apunta a menos de 7, más de 7 o al 7 exacto (paga 5x)</p>
+
+      <div class="dice-table">
+        <div class="dice-pair" id="dice-pair">
+          <div class="die face-1">⚀</div>
+          <span class="dice-plus">+</span>
+          <div class="die face-2">⚁</div>
+        </div>
+        <div class="dice-total" id="dice-total">—</div>
+      </div>
+
+      <div class="field-row" style="justify-content:center; margin-bottom:16px;">
+        <input class="field" type="number" id="bet" value="10" min="1" step="1" style="max-width:140px;" aria-label="Apuesta">
+      </div>
+
+      <div class="field-row" style="justify-content:center; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+        <button class="btn btn-ghost" data-type="under7">Menos de 7</button>
+        <button class="btn btn-ghost" data-type="over7">Más de 7</button>
+        <button class="btn btn-ghost" data-type="7">7 exacto (5x)</button>
+      </div>
+      <div class="field-row" style="justify-content:center;">
+        <button class="btn" id="roll-btn">Tirar</button>
+      </div>
+
+      <p class="result" id="result"></p>
+      <p class="fair-badge" id="fair-badge">Provably fair desactivado hasta la primera tirada</p>
+      <a class="back-link" href="/">← Volver al lobby</a>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="diamonds">◆ ◆ ◆</div>
+    <div><strong>CASINO DEMO</strong> — demo de entretenimiento con fichas virtuales.</div>
+  </footer>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/sfx.js"></script>
+  <script>
+    const FACES = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
+    const rollBtn = document.getElementById("roll-btn");
+    const resultEl = document.getElementById("result");
+    const totalEl = document.getElementById("dice-total");
+    let selected = "over7";
+    document.querySelectorAll("[data-type]").forEach((b) => {
+      b.addEventListener("click", () => {
+        document.querySelectorAll("[data-type]").forEach((x) => x.classList.remove("active"));
+        b.classList.add("active");
+        selected = b.dataset.type;
+        sfxChip();
+      });
+    });
+    document.querySelector(`[data-type="${selected}"]`).classList.add("active");
+
+    async function roll() {
+      const bet = parseFloat(document.getElementById("bet").value);
+      if (!(bet >= 1)) return alert("Apuesta inválida");
+      rollBtn.disabled = true;
+      resultEl.className = "result";
+      resultEl.textContent = "Rodando los dados…";
+      sfxSpinReel();
+      try {
+        const data = await api(`/api/games/dice/play?bet_type=${selected}`, {
+          method: "POST",
+          body: JSON.stringify({ bet }),
+        });
+        const r = data.result;
+        document.querySelector(".die.face-1").textContent = FACES[r.dice[0] - 1];
+        document.querySelector(".die.face-2").textContent = FACES[r.dice[1] - 1];
+        document.querySelector(".dice-pair").classList.remove("win");
+        totalEl.textContent = r.total;
+        sfxLand();
+        setTimeout(() => {
+          setChips(data.chips);
+          const gain = r.payout - bet;
+          if (gain > 0) {
+            resultEl.className = "result win";
+            resultEl.textContent = `¡Ganaste +${gain} fichas! (${r.total})`;
+            document.querySelector(".dice-pair").classList.add("win");
+            sfxWin();
+            confetti(120);
+            showToast(`+${gain} fichas`);
+          } else {
+            resultEl.className = "result lose";
+            resultEl.textContent = `${gain} fichas (${r.total})`;
+            sfxLose();
+            shakeEl(document.querySelector(".dice-pair"));
+          }
+          renderFair(data);
+          rollBtn.disabled = false;
+        }, 650);
+      } catch (e) {
+        resultEl.className = "result lose";
+        resultEl.textContent = e.message;
+        rollBtn.disabled = false;
+      }
+    }
+    rollBtn.addEventListener("click", roll);
+  </script>
+</body>
+</html>

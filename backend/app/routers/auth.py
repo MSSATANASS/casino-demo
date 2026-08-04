@@ -1,12 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from ..auth import hash_password, verify_password, create_token, get_db, get_current_user
-from ..config import BONUS_CHIPS
+from ..config import BONUS_CHIPS, REGISTER_RATE_LIMIT
 from ..db import User
+from ..ratelimit import RateLimiter, client_ip
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+register_limit = RateLimiter(*REGISTER_RATE_LIMIT)
 
 
 class RegisterIn(BaseModel):
@@ -24,7 +27,11 @@ def _public(user: User) -> dict:
 
 
 @router.post("/register")
-def register(body: RegisterIn, db: Session = Depends(get_db)):
+def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
+    if not register_limit.allowed(client_ip(request)):
+        raise HTTPException(status_code=429, detail="Too many accounts from this IP")
+    if len(body.password) < 6:
+        raise HTTPException(status_code=400, detail="Password too short (min 6 chars)")
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(email=body.email, password_hash=hash_password(body.password), chips=BONUS_CHIPS)

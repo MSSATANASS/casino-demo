@@ -45,6 +45,7 @@
       </div>
 
       <p class="result" id="result"></p>
+      <p class="fair-badge" id="fair-badge">Provably fair desactivado hasta la primera tirada</p>
       <a class="back-link" href="/">← Volver al lobby</a>
     </div>
   </main>
@@ -83,7 +84,16 @@
       reelsEl.classList.add("spinning");
       sfxSpinReel();
 
-      const data = await api("/api/games/slots/play", { method: "POST", body: JSON.stringify({ bet }) });
+      let data;
+      try {
+        data = await api("/api/games/slots/play", { method: "POST", body: JSON.stringify({ bet }) });
+      } catch (e) {
+        resultEl.className = "result lose";
+        resultEl.textContent = e.message;
+        spinBtn.disabled = false;
+        reelsEl.classList.remove("spinning");
+        return;
+      }
       const reels = data.result.reels;
 
       renderReels(reels);
@@ -110,6 +120,7 @@
         reelsEl.classList.remove("spinning");
         reelsEl.classList.add("landing");
         setChips(data.chips);
+        renderFair(data);
         const gain = data.result.payout - bet;
         if (gain > 0) {
           resultEl.className = "result win";

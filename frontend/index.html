@@ -44,7 +44,7 @@
     <!-- ============ LOBBY ============ -->
     <section id="lobby-view" hidden>
       <div class="loyalty">
-        <div class="stat"><div class="k">Juegos disponibles</div><div class="v">3</div></div>
+        <div class="stat"><div class="k">Juegos disponibles</div><div class="v">4</div></div>
         <div class="stat"><div class="k">Tipo de ficha</div><div class="v">Virtual</div></div>
         <div class="stat"><div class="k">Modo</div><div class="v">Demo</div></div>
       </div>
@@ -69,16 +69,26 @@
           <span class="desc">Apunta a rojo, negro, par o un número exacto.</span>
           <span class="go">Jugar →</span>
         </a>
+        <a href="/dice.html" class="game-card">
+          <span class="icon">🎲</span>
+          <span class="name">Dados</span>
+          <span class="desc">Menos de 7, más de 7 o el 7 exacto (paga 5x).</span>
+          <span class="go">Jugar →</span>
+        </a>
       </div>
 
       <h2 class="section-title">Leaderboard</h2>
       <ul id="leaderboard" class="leaderboard"></ul>
+
+      <h2 class="section-title">Tu historial</h2>
+      <div id="history-wrap"><p class="hint">Aún sin partidas.</p></div>
     </section>
   </main>
 
   <footer class="site-footer">
     <div class="diamonds">◆ ◆ ◆</div>
     <div><strong>CASINO DEMO</strong> — demo de entretenimiento con fichas virtuales. No se juega con dinero real.</div>
+    <div class="fair-note">Provably fair: cada ronda revela el seed del servidor y firma el siguiente con SHA-256. Verifícalo en cada juego.</div>
   </footer>
 
   <script src="/js/app.js"></script>

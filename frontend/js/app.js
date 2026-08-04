@@ -4,7 +4,37 @@ async function api(path, opts = {}) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = "Bearer " + token;
   const res = await fetch(path, { ...opts, headers });
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
+  return data;
+}
+
+async function sha256hex(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function renderFair(data) {
+  const el = document.getElementById("fair-badge");
+  if (!el || !data?.fair) return;
+  const f = data.fair;
+  let html = `Ronda #${f.round_no} · seed cliente <code>${f.client_seed.slice(0, 10)}…</code>`;
+  if (f.commit_published_before) {
+    html += ` · <span class="verify-pending">verificando hash…</span>`;
+    sha256hex(f.server_seed_used).then((h) => {
+      const ok = h === f.commit_published_before;
+      const span = el.querySelector(".verify-pending");
+      if (span) {
+        span.className = ok ? "verify-ok" : "verify-bad";
+        span.textContent = ok
+          ? "✓ commit verificable: sha256(seed) == hash previo"
+          : "✗ FALLO DE VERIFICACIÓN — no confíes en esta ronda";
+      }
+    });
+  } else {
+    html += ` · <span class="verify-pending">primer commit publicado — la próxima ronda será verificable</span>`;
+  }
+  el.innerHTML = html;
 }
 
 function setChips(chips) {
@@ -43,6 +73,23 @@ async function loadLeaderboard() {
   el.innerHTML = rows.map((r) => `<li>${r.email}: ${r.chips} fichas</li>`).join("");
 }
 
+async function loadHistory() {
+  const wrap = document.getElementById("history-wrap");
+  if (!wrap) return;
+  const rows = await api("/api/games/history");
+  if (!rows.length) {
+    wrap.innerHTML = '<p class="hint">Aún sin partidas.</p>';
+    return;
+  }
+  wrap.innerHTML = `<ul class="history">${rows
+    .map((h) => {
+      const sign = h.net >= 0 ? "+" : "";
+      const cls = h.net > 0 ? "pos" : h.net < 0 ? "neg" : "zero";
+      return `<li><span class="row-game">${h.game}</span> apuesta <strong>${h.bet}</strong> · <span class="${cls}">${sign}${h.net}</span> <em>${h.at.slice(0, 16).replace("T", " ")}</em></li>`;
+    })
+    .join("")}</ul>`;
+}
+
 async function initApp() {
   if (!token) {
     document.getElementById("lobby-view")?.setAttribute("hidden", "");
@@ -53,6 +100,7 @@ async function initApp() {
   const me = await api("/api/auth/me");
   setChips(me.chips);
   loadLeaderboard();
+  loadHistory();
 }
 
 initApp();
