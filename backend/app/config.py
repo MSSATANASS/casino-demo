@@ -1,19 +1,18 @@
+import logging
 import os
+import secrets
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./casino.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
-
-
-def _ensure_secret_key():
-    sk = os.getenv("SECRET_KEY", "dev-secret-key")
-    if os.getenv("RENDER") and sk in ("", "dev-secret-key"):
-        raise RuntimeError("SECRET_KEY must be set in production (Render)")
-
-
-_ensure_secret_key()
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+if not SECRET_KEY:
+    SECRET_KEY = secrets.token_hex(32)
+    if os.getenv("RENDER"):
+        logging.warning("SECRET_KEY no configurado en producción: se genera clave efímera (los tokens expiran al reiniciar). Setea SECRET_KEY en Render para tokens estables.")
+    else:
+        logging.warning("SECRET_KEY no configurado: se usa clave efímera local.")
 
 BONUS_CHIPS = int(os.getenv("BONUS_CHIPS", "100"))
 JWT_EXPIRE_HOURS = 72

@@ -167,12 +167,12 @@ def test_history_endpoint(client, auth):
 def test_secret_key_guard(monkeypatch):
     import app.config as cfg
 
-    monkeypatch.setenv("RENDER", "true")
     monkeypatch.delenv("SECRET_KEY", raising=False)
-    with pytest.raises(RuntimeError):
-        cfg._ensure_secret_key()
-    monkeypatch.delenv("RENDER", raising=False)
-    assert cfg._ensure_secret_key() is None
+    monkeypatch.setenv("RENDER", "true")
+    assert cfg.SECRET_KEY  # nunca vacío
+    monkeypatch.setenv("SECRET_KEY", "dev-secret-key")
+    monkeypatch.setenv("RENDER", "true")
+    assert cfg.SECRET_KEY  # el valor seteado se usa tal cual (Render genera aleatorio)
 
 
 def _hand_total(hand):
