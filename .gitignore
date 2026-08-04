@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 casino.db
 *.db
+*.db-shm
+*.db-wal
