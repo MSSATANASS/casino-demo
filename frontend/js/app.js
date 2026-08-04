@@ -154,6 +154,35 @@ function injectLogout() {
   bar.appendChild(b);
 }
 
+function injectRewardsTeaser() {
+  const lobby = document.getElementById("lobby-view");
+  if (!lobby || document.getElementById("rewards-teaser")) return;
+  const teaser = document.createElement("section");
+  teaser.id = "rewards-teaser";
+  teaser.className = "rewards-teaser";
+  teaser.innerHTML = `
+    <h2 class="section-title">Rewards premium</h2>
+    <div class="rewards-grid">
+      <article class="reward-card"><span class="reward-emoji">✈️</span><div><strong>Vuelos last minute</strong><p>Canjea puntos por experiencias de viaje.</p></div></article>
+      <article class="reward-card"><span class="reward-emoji">🎫</span><div><strong>Eventos VIP</strong><p>Acceso rápido a entradas premium.</p></div></article>
+      <article class="reward-card"><span class="reward-emoji">💎</span><div><strong>Tier high roller</strong><p>Bonos, cashback y perks exclusivos.</p></div></article>
+    </div>`;
+  lobby.appendChild(teaser);
+}
+
+function injectStatsTeaser() {
+  const loyalty = document.querySelector(".loyalty");
+  if (!loyalty || document.getElementById("crypto-teaser")) return;
+  const box = document.createElement("div");
+  box.id = "crypto-teaser";
+  box.className = "crypto-teaser";
+  box.innerHTML = `
+    <div><span>Crypto-first</span><strong>BTC · ETH · USDT · USDC</strong></div>
+    <div><span>Fallback</span><strong>Stripe + tarjeta</strong></div>
+    <div><span>Flujo</span><strong>x402 / wallet connect</strong></div>`;
+  loyalty.insertAdjacentElement("afterend", box);
+}
+
 async function initApp() {
   if (!token) {
     document.getElementById("lobby-view")?.setAttribute("hidden", "");
@@ -162,6 +191,8 @@ async function initApp() {
   document.getElementById("auth-view")?.setAttribute("hidden", "");
   document.getElementById("lobby-view")?.removeAttribute("hidden");
   injectLogout();
+  injectStatsTeaser();
+  injectRewardsTeaser();
   try {
     const me = await api("/api/auth/me");
     setChips(me.chips);
@@ -181,7 +212,6 @@ initApp();
    Shared premium helpers (confetti, toast, shake)
    ============================================================ */
 
-// Lightweight canvas confetti burst — no external deps.
 function confetti(count = 120) {
   let canvas = document.getElementById("confetti-canvas");
   if (!canvas) {
@@ -228,7 +258,6 @@ function confetti(count = 120) {
   })();
 }
 
-// "last win +X" toast
 function showToast(msg, ms = 2600) {
   let toast = document.getElementById("toast");
   if (!toast) {
@@ -243,10 +272,9 @@ function showToast(msg, ms = 2600) {
   toast._t = setTimeout(() => toast.classList.remove("show"), ms);
 }
 
-// shake an element (lose feedback)
 function shakeEl(el) {
   if (!el) return;
   el.classList.remove("shake");
-  void el.offsetWidth; // restart animation
+  void el.offsetWidth;
   el.classList.add("shake");
 }
