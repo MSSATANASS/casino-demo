@@ -59,9 +59,42 @@ class BlackjackRound(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class LedgerEntry(Base):
+    __tablename__ = "ledger_entries"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    kind = Column(String, nullable=False)  # deposit | bet | payout | bonus | adjustment
+    amount = Column(Integer, nullable=False)
+    idempotency_key = Column(String, nullable=False, index=True)
+    meta = Column(Text, nullable=False, default="{}")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 def normalize_handle(raw: str) -> str:
     name = re.sub(r"[^a-z0-9_.-]", "", (raw or "").lower())
     return (name[:16] or "player").rstrip("._-") or "player"
+
+
+def record_ledger_event(db, *, user_id: int, kind: str, amount: int, idempotency_key: str, meta: dict | None = None):
+    """Idempotent ledger insert for mock balances and future payment stubs."""
+    existing = (
+        db.query(LedgerEntry)
+        .filter(LedgerEntry.user_id == user_id, LedgerEntry.idempotency_key == idempotency_key)
+        .first()
+    )
+    if existing:
+        return existing
+    row = LedgerEntry(
+        user_id=user_id,
+        kind=kind,
+        amount=int(amount),
+        idempotency_key=idempotency_key,
+        meta=json.dumps(meta or {}, ensure_ascii=False),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
 
 
 def _migrate():
