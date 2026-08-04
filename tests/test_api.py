@@ -258,6 +258,27 @@ def test_chips_invariant_under_concurrency(client):
         assert chips == round(100 - total_bet + total_payout, 2), "invariante de chips rota"
 
 
+def test_client_seed_capped(client, auth):
+    r = client.post(
+        "/api/games/slots/play",
+        json={"bet": 2, "client_seed": "x" * 129},
+        headers=auth,
+    )
+    assert r.status_code == 422, f"client_seed >128 debería dar 422 (dio {r.status_code})"
+    ok = client.post(
+        "/api/games/slots/play",
+        json={"bet": 2, "client_seed": "x" * 128},
+        headers=auth,
+    )
+    assert ok.status_code == 200
+
+
+def test_body_size_limit(client, auth):
+    body = b'{"bet":"' + b"a" * 70000 + b'"}'
+    r = client.post("/api/games/slots/play", content=body, headers={"Content-Type": "application/json", **auth})
+    assert r.status_code == 413, f"body >64KB debería dar 413 (dio {r.status_code})"
+
+
 def test_secret_key_guard(monkeypatch):
     import app.config as cfg
 

@@ -3,7 +3,7 @@ import math
 import threading
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from ..auth import get_db, get_current_user
@@ -52,6 +52,13 @@ def serialize_user(fn):
 class PlayIn(BaseModel):
     bet: float
     client_seed: str | None = None
+
+    @field_validator("client_seed")
+    @classmethod
+    def _cap_client_seed(cls, v: str | None) -> str | None:
+        if v is not None and len(v) > 128:
+            raise ValueError("client_seed too long")
+        return v
 
 
 class BlackjackActionIn(BaseModel):
@@ -279,6 +286,8 @@ def blackjack_action(
 
 
 @router.get("/fair/state")
+
+@serialize_user
 def fair_state(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not user.server_seed:
         user.server_seed = fair.gen_seed()

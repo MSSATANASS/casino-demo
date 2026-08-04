@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -8,7 +8,22 @@ from .db import engine, init_db
 from .routers import auth as auth_router
 from .routers import games as games_router
 
+MAX_BODY_BYTES = 65536
+
 app = FastAPI(title="Casino Demo", description="Demo con fichas virtuales - sin dinero real")
+
+
+@app.middleware("http")
+async def limit_body_size(request: Request, call_next):
+    cl = request.headers.get("content-length")
+    if cl is not None:
+        try:
+            if int(cl) > MAX_BODY_BYTES:
+                return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+        except ValueError:
+            pass
+    return await call_next(request)
+
 
 init_db()
 
