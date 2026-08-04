@@ -1,4 +1,6 @@
 import json
+import math
+import threading
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -13,6 +15,38 @@ from ..ratelimit import RateLimiter, client_ip
 router = APIRouter(prefix="/api/games", tags=["games"])
 
 play_limit = RateLimiter(*PLAY_RATE_LIMIT)
+
+_user_locks: dict[int, threading.Lock] = {}
+_locks_guard = threading.Lock()
+
+
+def _lock_for(user_id: int) -> threading.Lock:
+    with _locks_guard:
+        lock = _user_locks.get(user_id)
+        if lock is None:
+            lock = threading.Lock()
+            _user_locks[user_id] = lock
+    return lock
+
+
+def serialize_user(fn):
+    """Serializa por usuario: evita race conditions en user.chips y la rotación de seeds."""
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        user = kwargs.get("user")
+        if user is None:
+            user = next((a for a in args if isinstance(a, User)), None)
+        if user is None:
+            return fn(*args, **kwargs)
+        db = kwargs.get("db") or next((a for a in args if isinstance(a, Session)), None)
+        with _lock_for(user.id):
+            if db is not None:
+                db.refresh(user)
+            return fn(*args, **kwargs)
+
+    return wrapper
 
 
 class PlayIn(BaseModel):
@@ -55,7 +89,7 @@ def _fair(user: User, client_seed: str | None) -> tuple[object, dict]:
 
 
 def _validate_bet(bet: float, chips: int):
-    if not (MIN_BET <= bet <= MAX_BET) or bet > chips:
+    if not math.isfinite(bet) or not (MIN_BET <= bet <= MAX_BET) or bet > chips:
         raise HTTPException(status_code=400, detail="Invalid bet")
 
 
@@ -65,6 +99,8 @@ def _record(db: Session, user_id: int, game: str, bet: float, payout: float, res
 
 
 @router.post("/slots/play")
+
+@serialize_user
 def play_slots(
     body: PlayIn,
     request: Request,
@@ -82,6 +118,8 @@ def play_slots(
 
 
 @router.post("/roulette/play")
+
+@serialize_user
 def play_roulette(
     body: PlayIn,
     bet_type: str,
@@ -105,6 +143,8 @@ def play_roulette(
 
 
 @router.post("/dice/play")
+
+@serialize_user
 def play_dice(
     body: PlayIn,
     bet_type: str,
@@ -125,6 +165,8 @@ def play_dice(
 
 
 @router.post("/blackjack/start")
+
+@serialize_user
 def blackjack_start(
     body: PlayIn,
     request: Request,
@@ -177,6 +219,8 @@ def blackjack_start(
 
 
 @router.post("/blackjack/action")
+
+@serialize_user
 def blackjack_action(
     body: BlackjackActionIn,
     user: User = Depends(get_current_user),

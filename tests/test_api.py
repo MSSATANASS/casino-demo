@@ -195,6 +195,69 @@ def test_leaderboard_leaks_no_email(client, auth):
     assert all("email" not in r for r in rows)
 
 
+def test_login_rate_limit(client, auth):
+    # 10 intentos con credenciales malas -> 401; el 11º -> 429
+    for i in range(10):
+        r = client.post("/api/auth/login", json={"email": "ghost@test.com", "password": "wrongpass"})
+        assert r.status_code == 401
+    r = client.post("/api/auth/login", json={"email": "ghost@test.com", "password": "wrongpass"})
+    assert r.status_code == 429
+    assert r.headers.get("retry-after") == "60"
+
+
+def test_bet_nan_inf_rejected(client, auth):
+    # Body crudo: json.dumps(allow_nan=False) en httpx bloquea NaN, pero un cliente
+    # real puede mandar JSON con NaN/Infinity (Python json.loads lo acepta).
+    head = {"Content-Type": "application/json", **auth}
+    for raw in (b'{"bet": NaN}', b'{"bet": Infinity}', b'{"bet": -Infinity}', b'{"bet": -1}', b'{"bet": 0}', b'{"bet": 0.0001}', b'{"bet": 1000.01}'):
+        r = client.post("/api/games/slots/play", content=raw, headers=head)
+        assert r.status_code == 400, f"bet {raw} debería dar 400 (dio {r.status_code})"
+
+
+def test_chips_invariant_under_concurrency(client):
+    import threading
+
+    N_THREADS, PLAYS = 4, 4
+    results: list[tuple] = []
+    errors: list[Exception] = []
+
+    def worker(idx: int):
+        try:
+            with TestClient(app) as c:
+                email = f"conc-{idx}-{uuid.uuid4().hex[:8]}@test.com"
+                tok = c.post(
+                    "/api/auth/register", json={"email": email, "password": "secret123"}
+                ).json()["token"]
+                head = {"Authorization": f"Bearer {tok}"}
+                for _ in range(PLAYS):
+                    r = c.post("/api/games/slots/play", json={"bet": 2}, headers=head)
+                    assert r.status_code == 200, r.text[:200]
+                me = c.get("/api/auth/me", headers=head).json()
+                hist = c.get("/api/games/history", headers=head).json()
+                results.append(
+                    (
+                        me["chips"],
+                        sum(x["bet"] for x in hist),
+                        sum(x["payout"] for x in hist),
+                        len(hist),
+                    )
+                )
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(N_THREADS)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, errors
+    assert len(results) == N_THREADS, "algún worker no terminó"
+    for chips, total_bet, total_payout, n_hist in results:
+        assert n_hist == PLAYS, f"history={n_hist} esperado {PLAYS}"
+        assert chips == round(100 - total_bet + total_payout, 2), "invariante de chips rota"
+
+
 def test_secret_key_guard(monkeypatch):
     import app.config as cfg
 

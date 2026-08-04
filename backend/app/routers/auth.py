@@ -11,6 +11,7 @@ from ..ratelimit import RateLimiter, client_ip
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 register_limit = RateLimiter(*REGISTER_RATE_LIMIT)
+login_limit = RateLimiter(10, 60)
 
 
 class RegisterIn(BaseModel):
@@ -64,7 +65,13 @@ def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(body: LoginIn, db: Session = Depends(get_db)):
+def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
+    if not login_limit.allowed(client_ip(request)):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many login attempts, try later",
+            headers={"Retry-After": "60"},
+        )
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
