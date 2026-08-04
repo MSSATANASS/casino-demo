@@ -147,6 +147,19 @@ a:hover { color: var(--gold); }
 }
 .chip .label { font-size: 0.72rem; letter-spacing: 1px; color: var(--text-dim); text-transform: uppercase; }
 .chip .value { font-size: 1.05rem; font-weight: 700; color: var(--gold); }
+.logout-btn {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--glass);
+  border: 1px solid var(--line-gold);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.logout-btn:hover { color: var(--text); border-color: var(--border-gold); background: var(--glass-strong); }
 
 /* ============ BUTTONS ============ */
 .btn {

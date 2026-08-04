@@ -25,6 +25,14 @@ async def limit_body_size(request: Request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def no_store_api(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 init_db()
 
 

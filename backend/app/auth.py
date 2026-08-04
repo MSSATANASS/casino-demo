@@ -33,10 +33,10 @@ def get_db():
 
 
 def get_current_user(
-    authorization: str = Header(...),
+    authorization: str | None = Header(None),
     db: Session = Depends(get_db),
 ) -> User:
-    if not authorization.startswith("Bearer "):
+    if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing token")
     token = authorization.removeprefix("Bearer ")
     try:

@@ -290,6 +290,39 @@ def test_secret_key_guard(monkeypatch):
     assert cfg.SECRET_KEY  # el valor seteado se usa tal cual (Render genera aleatorio)
 
 
+def test_roulette_play(client, auth):
+    for bet_type in ("red", "black", "even", "odd", "low", "high"):
+        r = client.post(f"/api/games/roulette/play?bet_type={bet_type}", json={"bet": 5}, headers=auth)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["result"]["bet_type"] == bet_type
+        assert 0 <= body["result"]["number"] <= 36
+        assert body["result"]["won"] in (True, False)
+        assert "fair" in body
+    r = client.post("/api/games/roulette/play?bet_type=purple", json={"bet": 5}, headers=auth)
+    assert r.status_code == 400, "bet_type inválido debería dar 400"
+    r = client.post("/api/games/roulette/play?bet_type=straight&number=37", json={"bet": 5}, headers=auth)
+    assert r.status_code == 400, "número fuera de rango debería dar 400"
+    r = client.post("/api/games/roulette/play?bet_type=straight&number=7", json={"bet": 5}, headers=auth)
+    assert r.status_code == 200
+
+
+def test_api_requires_token(client):
+    for method, path in (
+        ("post", "/api/games/slots/play"),
+        ("get", "/api/games/history"),
+        ("get", "/api/auth/me"),
+        ("get", "/api/games/fair/state"),
+    ):
+        r = client.post(path, json={"bet": 5}) if method == "post" else client.get(path)
+        assert r.status_code == 401, f"{path} sin token debería dar 401 (dio {r.status_code})"
+
+
+def test_api_no_store_header(client):
+    r = client.get("/api/games/leaderboard")
+    assert r.headers.get("cache-control") == "no-store", "las respuestas /api no deben cachearse"
+
+
 def _hand_total(hand):
     total = sum(c["value"] for c in hand)
     aces = sum(1 for c in hand if c["rank"] == "A")

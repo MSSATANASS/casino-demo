@@ -5,6 +5,12 @@ async function api(path, opts = {}) {
   if (token) headers["Authorization"] = "Bearer " + token;
   const res = await fetch(path, { ...opts, headers });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && localStorage.getItem("casino_token")) {
+    localStorage.removeItem("casino_token");
+    sessionStorage.removeItem("casino_fair_commit");
+    location.href = "/";
+    throw new Error(data.detail || "Sesión expirada");
+  }
   if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
   return data;
 }
@@ -112,6 +118,23 @@ async function loadHistory() {
     .join("")}</ul>`;
 }
 
+function injectLogout() {
+  if (document.getElementById("logout-btn")) return;
+  const bar = document.querySelector(".site-header .chip-bar");
+  if (!bar) return;
+  const b = document.createElement("button");
+  b.id = "logout-btn";
+  b.className = "logout-btn";
+  b.type = "button";
+  b.textContent = "Salir";
+  b.addEventListener("click", () => {
+    localStorage.removeItem("casino_token");
+    sessionStorage.removeItem("casino_fair_commit");
+    location.href = "/";
+  });
+  bar.appendChild(b);
+}
+
 async function initApp() {
   if (!token) {
     document.getElementById("lobby-view")?.setAttribute("hidden", "");
@@ -119,10 +142,15 @@ async function initApp() {
   }
   document.getElementById("auth-view")?.setAttribute("hidden", "");
   document.getElementById("lobby-view")?.removeAttribute("hidden");
-  const me = await api("/api/auth/me");
-  setChips(me.chips);
-  const uname = document.getElementById("username-label");
-  if (uname) uname.textContent = me.username || "player";
+  injectLogout();
+  try {
+    const me = await api("/api/auth/me");
+    setChips(me.chips);
+    const uname = document.getElementById("username-label");
+    if (uname) uname.textContent = me.username || "player";
+  } catch {
+    return;
+  }
   initFair();
   loadLeaderboard();
   loadHistory();

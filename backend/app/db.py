@@ -2,12 +2,21 @@ import json
 import re
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, inspect, text
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, event, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from .config import DATABASE_URL
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+
+if DATABASE_URL.startswith("sqlite"):
+    @event.listens_for(engine, "connect")
+    def _sqlite_pragma(dbapi_conn, _record):
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA busy_timeout=5000")
+        cur.close()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
