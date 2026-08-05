@@ -361,3 +361,96 @@ def _hand_total(hand):
         total -= 10
         aces -= 1
     return total
+def test_deposit_ok(client, auth):
+    # Successful deposit
+    r = client.post(
+        "/api/ledger/deposit",
+        json={"amount": 50, "idempotency_key": "test-key-1"},
+        headers=auth,
+    )
+    assert r.status_code == 201
+    data = r.json()
+    assert data["deposited"] == 50
+    assert data["chips"] == 150  # starting 100 + 50
+
+def test_deposit_idempotent(client, auth):
+    key = "idempotent-key-123"
+    # First deposit
+    r1 = client.post(
+        "/api/ledger/deposit",
+        json={"amount": 30, "idempotency_key": key},
+        headers=auth,
+    )
+    assert r1.status_code == 201
+    # Second deposit with same key should not increase balance
+    r2 = client.post(
+        "/api/ledger/deposit",
+        json={"amount": 30, "idempotency_key": key},
+        headers=auth,
+    )
+    assert r2.status_code == 201
+    data = r2.json()
+    assert data["deposited"] == 30
+    assert data["chips"] == 130  # 100 + 30 (only once)
+
+def test_deposit_invalid_amount(client, auth):
+    # Zero
+    r = client.post(
+        "/api/ledger/deposit",
+        json={"amount": 0, "idempotency_key": "z1"},
+        headers=auth,
+    )
+    assert r.status_code == 422
+    # Negative
+    r = client.post(
+        "/api/ledger/deposit",
+        json={"amount": -5, "idempotency_key": "z2"},
+        headers=auth,
+    )
+    assert r.status_code == 422
+    # Non-integer
+    r = client.post(
+        "/api/ledger/deposit",
+        json={"amount": 5.5, "idempotency_key": "z3"},
+        headers=auth,
+    )
+    assert r.status_code == 422
+    # Too large
+    r = client.post(
+        "/api/ledger/deposit",
+        json={"amount": 10001, "idempotency_key": "z4"},
+        headers=auth,
+    )
+    assert r.status_code == 422
+
+def test_deposit_401_without_token(client):
+    r = client.post(
+        "/api/ledger/deposit",
+        json={"amount": 10, "idempotency_key": "no-auth"},
+    )
+    assert r.status_code == 401
+
+def test_ledger_entries(client, auth):
+    # Make a deposit to have an entry
+    client.post(
+        "/api/ledger/deposit",
+        json={"amount": 20, "idempotency_key": "hist-1"},
+        headers=auth,
+    )
+    # Fetch ledger entries
+    r = client.get("/api/ledger/entries", headers=auth)
+    assert r.status_code == 200
+    entries = r.json()
+    assert isinstance(entries, list)
+    assert len(entries) >= 1
+    entry = entries[0]
+    assert entry["kind"] == "deposit"
+    assert entry["amount"] == 20.0  # chips
+    assert entry["idempotency_key"] == "hist-1"
+    # Check that amount is a float (or int) and positive
+    assert isinstance(entry["amount"], (int, float))
+    assert entry["amount"] > 0
+    # Check that created_at is a string
+    assert isinstance(entry["created_at"], str)
+    # Check that we don't leak user_id in the response
+    assert "user_id" not in entry

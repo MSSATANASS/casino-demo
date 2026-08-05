@@ -3,6 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta name="description" content="Last Minutes Tickets — demo de casino con fichas virtuales, provably fair SHA-256, sin dinero real.">
+  <meta name="robots" content="index,follow">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Last Minutes Tickets">
+  <meta property="og:title" content="Slots — LAST MINUTES TICKETS">
+  <meta property="og:description" content="Demo de casino con fichas virtuales — provably fair, sin dinero real.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
   <title>Slots — LAST MINUTES TICKETS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -70,8 +78,20 @@
         <button class="btn" id="spin-btn">Girar</button>
       </div>
 
+      <details class="seed-wrap" id="seed-wrap">
+        <summary>client_seed (avanzado)</summary>
+        <input class="field" type="text" id="client-seed" maxlength="32" placeholder="Seed opcional del cliente (verificación provably fair)" autocomplete="off">
+      </details>
+
       <p class="result" id="result"></p>
       <p class="fair-badge" id="fair-badge">Provably fair desactivado hasta la primera tirada</p>
+
+      <details class="paytable-box" id="paytable-box">
+        <summary>Paytable & RTP</summary>
+        <div class="paytable-grid" id="paytable-grid"></div>
+        <p class="paytable-note">RTP 96% · retorno total (payout = ganancia + apuesta). El wild 💎 sustituye al mejor símbolo; el scatter 🃏 paga aparte.</p>
+      </details>
+
       <a class="back-link" href="/">← Volver al lobby</a>
     </div>
   </main>
@@ -113,7 +133,10 @@
 
       let data;
       try {
-        data = await api("/api/games/slots/play", { method: "POST", body: JSON.stringify({ bet }) });
+        const body = { bet };
+        const seedEl = document.getElementById("client-seed");
+        if (seedEl && seedEl.value.trim()) body.client_seed = seedEl.value.trim();
+        data = await api("/api/games/slots/play", { method: "POST", body: JSON.stringify(body) });
       } catch (e) {
         resultEl.className = "result lose";
         resultEl.textContent = e.message;
@@ -122,6 +145,7 @@
         return;
       }
       const reels = data.result.reels;
+      renderPaytable(data.result.paytable);
 
       renderReels(reels);
       const cols = reelsEl.querySelectorAll(".reel-col");
@@ -168,7 +192,24 @@
         spinBtn.disabled = false;
       }, 2200);
     }
+
+    function renderPaytable(pt) {
+      if (!pt || document.getElementById("paytable-grid").childElementCount) return;
+      const rows = [["Símbolo", "3 en línea", "Multiplicador"]];
+      Object.entries(pt.line || {}).forEach(([sym, mults]) => {
+        const m = mults[3];
+        rows.push([sym, "1 línea", m + "x"]);
+      });
+      const sc = pt.scatter || {};
+      rows.push(["🃏 Scatter", "2/3 en vista", `${sc[2] || 1}x / ${sc[3] || 50}x`]);
+      rows.push(["💎 Wild", "Sustituye", "Mejor símbolo"]);
+      const html = rows.map((r, i) =>
+        `<div class="pt-row${i === 0 ? " pt-head" : ""}"><span class="pt-sym">${r[0]}</span><span class="pt-cond">${r[1]}</span><span class="pt-pay">${r[2]}</span></div>`
+      ).join("");
+      document.getElementById("paytable-grid").innerHTML = html;
+    }
+
     spinBtn.addEventListener("click", spin);
   </script>
-</body>
-</html>
+ </body>
+ </html>

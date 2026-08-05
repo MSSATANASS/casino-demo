@@ -7,6 +7,7 @@ from sqlalchemy import text
 from .db import engine, init_db
 from .routers import auth as auth_router
 from .routers import games as games_router
+from .routers import ledger as ledger_router
 
 MAX_BODY_BYTES = 65536
 
@@ -33,9 +34,6 @@ async def no_store_api(request: Request, call_next):
     return response
 
 
-init_db()
-
-
 @app.get("/health")
 def health():
     try:
@@ -46,8 +44,12 @@ def health():
         return JSONResponse(status_code=503, content={"status": "error", "db": "error"})
 
 
+init_db()
+
+
 app.include_router(auth_router.router)
 app.include_router(games_router.router)
+app.include_router(ledger_router.router)
 
 frontend_dir = Path(__file__).resolve().parent.parent.parent / "frontend"
 if frontend_dir.exists():

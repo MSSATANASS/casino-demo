@@ -3,6 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta name="description" content="Last Minutes Tickets — demo de casino con fichas virtuales, provably fair SHA-256, sin dinero real.">
+  <meta name="robots" content="index,follow">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Last Minutes Tickets">
+  <meta property="og:title" content="Ruleta — LAST MINUTES TICKETS">
+  <meta property="og:description" content="Demo de casino con fichas virtuales — provably fair, sin dinero real.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
   <title>Ruleta — LAST MINUTES TICKETS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -76,6 +84,10 @@
         </select>
         <input class="field" type="number" id="number" placeholder="Nº (0-36)" hidden style="max-width:120px;">
       </div>
+      <details class="seed-wrap" id="seed-wrap">
+        <summary>client_seed (avanzado)</summary>
+        <input class="field" type="text" id="client-seed" maxlength="32" placeholder="Seed opcional del cliente (verificación provably fair)" autocomplete="off">
+      </details>
 
       <button class="btn" id="spin-btn">Girar</button>
       <p class="result" id="result-text"></p>
@@ -137,6 +149,9 @@
       const bet = parseFloat(document.getElementById("bet").value);
       const bt = betType.value;
       const query = bt === "straight" ? `?bet_type=${bt}&number=${numInput.value}` : `?bet_type=${bt}`;
+      const body = { bet };
+      const seedEl = document.getElementById("client-seed");
+      if (seedEl && seedEl.value.trim()) body.client_seed = seedEl.value.trim();
       spinBtn.disabled = true;
       resultEl.className = "result";
       resultEl.textContent = "Girando…";
@@ -155,7 +170,7 @@
 
       let data;
       try {
-        data = await api(`/api/games/roulette/play${query}`, { method: "POST", body: JSON.stringify({ bet }) });
+        data = await api(`/api/games/roulette/play${query}`, { method: "POST", body: JSON.stringify(body) });
       } catch (e) {
         clearInterval(tick);
         resultEl.className = "result lose";

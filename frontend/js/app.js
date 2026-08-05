@@ -179,7 +179,8 @@ function injectStatsTeaser() {
   box.innerHTML = `
     <div><span>Crypto-first</span><strong>BTC · ETH · USDT · USDC</strong></div>
     <div><span>Fallback</span><strong>Stripe + tarjeta</strong></div>
-    <div><span>Flujo</span><strong>x402 / wallet connect</strong></div>`;
+    <div><span>Flujo</span><strong>x402 / wallet connect</strong></div>
+    <div class="crypto-note"><span>Estado</span><strong>Próximamente — demo sin dinero real</strong></div>`;
   loyalty.insertAdjacentElement("afterend", box);
 }
 

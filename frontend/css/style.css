@@ -1079,3 +1079,72 @@ select.field {
   margin-bottom: 3px;
 }
 .crypto-teaser strong { font-size: 0.92rem; font-weight: 600; color: var(--gb-text-2); font-variant-numeric: tabular-nums; }
+.crypto-teaser .crypto-note strong { color: var(--gb-warn); }
+
+/* ============ PAYTABLE & SEED (Sprint 1 finish) ============ */
+.paytable-box,
+.seed-wrap {
+  margin-top: 16px;
+  border: 1px solid var(--gb-border);
+  border-radius: var(--radius-sm);
+  background: var(--gb-panel);
+  overflow: hidden;
+}
+.paytable-box summary,
+.seed-wrap summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  padding: 11px 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--gb-text-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.15s, background 0.15s;
+}
+.paytable-box summary::before,
+.seed-wrap summary::before {
+  content: "▸";
+  color: var(--gb-accent);
+  transition: transform 0.15s;
+}
+.paytable-box[open] summary::before,
+.seed-wrap[open] summary::before { transform: rotate(90deg); }
+.paytable-box summary:hover,
+.seed-wrap summary:hover { color: var(--gb-text); background: var(--gb-surface); }
+
+.paytable-grid {
+  border-top: 1px solid var(--gb-divider);
+  padding: 6px 0;
+}
+.pt-row {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1fr;
+  gap: 8px;
+  padding: 7px 16px;
+  font-size: 0.86rem;
+  align-items: center;
+}
+.pt-row + .pt-row { border-top: 1px solid var(--gb-divider); }
+.pt-head {
+  font-size: 0.66rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--gb-text-3);
+}
+.pt-sym { font-weight: 600; color: var(--gb-text); }
+.pt-cond { color: var(--gb-text-3); }
+.pt-pay { text-align: right; font-weight: 700; color: var(--gb-ok); font-variant-numeric: tabular-nums; }
+.paytable-note {
+  padding: 10px 16px 12px;
+  font-size: 0.72rem;
+  color: var(--gb-text-3);
+  border-top: 1px solid var(--gb-divider);
+}
+
+.seed-wrap .field { margin: 0; border-radius: 0; border-left: none; border-right: none; border-bottom: none; }
+.seed-wrap[open] .field { display: block; }
