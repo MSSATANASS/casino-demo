@@ -21,9 +21,12 @@ import pytest
 def _reset_rate_limits():
     from app.routers import auth as auth_router
     from app.routers import games as games_router
+    from app.routers import ledger as ledger_router
 
     auth_router.register_limit.reset()
     games_router.play_limit.reset()
+    ledger_router.deposit_limit.reset()
     yield
     auth_router.register_limit.reset()
     games_router.play_limit.reset()
+    ledger_router.deposit_limit.reset()

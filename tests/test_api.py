@@ -430,6 +430,22 @@ def test_deposit_401_without_token(client):
     )
     assert r.status_code == 401
 
+def test_deposit_rate_limit(client, auth):
+    for i in range(10):
+        r = client.post(
+            "/api/ledger/deposit",
+            json={"amount": 1, "idempotency_key": f"rl-{i}"},
+            headers=auth,
+        )
+        assert r.status_code == 201
+    r = client.post(
+        "/api/ledger/deposit",
+        json={"amount": 1, "idempotency_key": "rl-over"},
+        headers=auth,
+    )
+    assert r.status_code == 429
+    assert r.headers.get("retry-after") is not None
+
 def test_ledger_entries(client, auth):
     # Make a deposit to have an entry
     client.post(
