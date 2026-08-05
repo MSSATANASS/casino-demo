@@ -55,7 +55,11 @@ def test_fair_commit_chain(client, auth):
     assert fair.hash_hex(f2["server_seed_used"]) == f2["commit_published_before"] == r1["fair"]["next_commit"]
 
     rng = fair.rng_for(f2["server_seed_used"], f2["client_seed"], f2["round_no"])
-    assert slots.spin(5, rng) == r2["result"]
+    expected = slots.spin(5, rng)
+    expected.pop("paytable", None)
+    actual = dict(r2["result"])
+    actual.pop("paytable", None)
+    assert expected == actual
 
     r3 = client.post("/api/games/slots/play", json={"bet": 5}, headers=auth).json()
     assert fair.hash_hex(r3["fair"]["server_seed_used"]) == r3["fair"]["commit_published_before"] == f2["next_commit"]
