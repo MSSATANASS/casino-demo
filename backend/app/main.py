@@ -18,6 +18,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://mssatanass.github.io",
+        "https://casino-app-2601.onrender.com",
         "http://localhost:5173",
         "http://localhost:4174",
     ],
