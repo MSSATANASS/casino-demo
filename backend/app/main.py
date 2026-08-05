@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -12,6 +13,18 @@ from .routers import ledger as ledger_router
 MAX_BODY_BYTES = 65536
 
 app = FastAPI(title="Casino Demo", description="Demo con fichas virtuales - sin dinero real")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://mssatanass.github.io",
+        "http://localhost:5173",
+        "http://localhost:4174",
+    ],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.middleware("http")

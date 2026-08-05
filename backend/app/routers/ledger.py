@@ -13,6 +13,8 @@ from ..ratelimit import RateLimiter, client_ip
 router = APIRouter(prefix="/api/ledger", tags=["ledger"])
 
 deposit_limit = RateLimiter(*DEPOSIT_RATE_LIMIT)
+adjust_limit = RateLimiter(60, 60)
+
 
 class DepositIn(BaseModel):
     amount: int = Field(..., gt=0, le=10000, description="Amount in chips (1-10000)")
@@ -32,6 +34,29 @@ class DepositIn(BaseModel):
             raise ValueError("Idempotency key must be between 1 and 256 characters")
         return v
 
+
+class AdjustIn(BaseModel):
+    kind: str = Field(..., description="bet | win | withdraw")
+    amount: int = Field(..., gt=0, le=100000)
+    game: str = Field("", max_length=32)
+    note: str = Field("", max_length=256)
+    idempotency_key: str = Field(..., min_length=1, max_length=255)
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, v: str) -> str:
+        if v not in ("bet", "win", "withdraw"):
+            raise ValueError("kind must be bet, win or withdraw")
+        return v
+
+    @field_validator("idempotency_key")
+    @classmethod
+    def validate_adjust_key(cls, v: str) -> str:
+        if not v or len(v) > 256:
+            raise ValueError("Idempotency key must be between 1 and 256 characters")
+        return v
+
+
 class LedgerEntryOut(BaseModel):
     id: int
     kind: str
@@ -39,6 +64,7 @@ class LedgerEntryOut(BaseModel):
     idempotency_key: str
     meta: str
     created_at: str  # ISO string
+
 
 @router.post("/deposit", status_code=201)
 def deposit(
@@ -71,13 +97,13 @@ def deposit(
         # Record ledger entry for deposit (kind="deposit")
         # amount in chips -> convert to cents for storage
         amount_cents = int(round(body.amount * 100))
-        entry = record_ledger_event(
+        record_ledger_event(
             db,
             user_id=user.id,
             kind="deposit",
             amount=amount_cents,
             idempotency_key=body.idempotency_key,
-            meta={"source": "deposit_endpoint"},
+            meta={"source": "deposit_endpoint", "note": "Compra de fichas"},
         )
         # Update user chips
         user.chips = user.chips + body.amount
@@ -85,6 +111,55 @@ def deposit(
         db.commit()
         db.refresh(user)
     return {"chips": user.chips, "deposited": body.amount}
+
+
+@router.post("/adjust")
+def adjust(
+    body: AdjustIn,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Sincroniza el saldo real con rondas de Crash/Mines/Plinko/Towers.
+
+    Estos 4 juegos todavia corren el RNG en el cliente (a diferencia de
+    slots/roulette/dice/blackjack, que son server-authoritative), asi que el
+    resultado llega reportado desde el navegador. Se valida que el saldo
+    nunca quede negativo y se aplica idempotencia igual que en /deposit.
+    """
+    if not adjust_limit.allowed(client_ip(request)):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many requests",
+            headers={"Retry-After": "60"},
+        )
+    with _lock_for(user.id):
+        db.refresh(user)
+        existing = (
+            db.query(LedgerEntry)
+            .filter(LedgerEntry.user_id == user.id, LedgerEntry.idempotency_key == body.idempotency_key)
+            .first()
+        )
+        if existing:
+            return {"chips": user.chips}
+        delta = -body.amount if body.kind in ("bet", "withdraw") else body.amount
+        if delta < 0 and user.chips + delta < 0:
+            raise HTTPException(status_code=400, detail="Insufficient chips")
+        db_kind = "bet" if body.kind == "bet" else ("payout" if body.kind == "win" else "withdraw")
+        record_ledger_event(
+            db,
+            user_id=user.id,
+            kind=db_kind,
+            amount=int(round(delta * 100)),
+            idempotency_key=body.idempotency_key,
+            meta={"game": body.game, "note": body.note, "client_reported": True},
+        )
+        user.chips = max(0, user.chips + delta)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return {"chips": user.chips}
+
 
 @router.get("/entries", response_model=List[LedgerEntryOut])
 def list_entries(
